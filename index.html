@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1D9E75">
+<link rel="manifest" href="manifest.json">
 <title>AGF Messenchymal — Ventas Congreso</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -143,6 +145,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
   .metodo-grid{grid-template-columns:repeat(2,1fr)}
   .slots-grid{grid-template-columns:repeat(5,1fr)}
 }
+
+/* OFFLINE INDICATOR */
+#conn-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid;margin-left:auto;flex-shrink:0;white-space:nowrap}
+#conn-badge.online{background:#E1F5EE;border-color:#9FE1CB;color:#0F6E56}
+#conn-badge.offline{background:#fdf0f0;border-color:#f5c6c6;color:#c0392b}
+.cbdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cbdot.online{background:#1D9E75}
+.cbdot.offline{background:#e74c3c;animation:pulse 1.5s infinite}
+/* warn state for modal rows */
+.srow.warn{border-color:#e67e22;background:#fef9f0}
+.sdot-warn{background:#e67e22}
+/* DEVICE SELECTOR */
+.device-sel{display:flex;gap:10px;margin-bottom:10px}
+.device-btn{flex:1;padding:14px 8px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;background:#fafaf9;color:var(--text);text-align:center;transition:all .12s;line-height:1.7}
+.device-btn:hover{border-color:var(--green);background:var(--green-light);color:var(--green-dark)}
+/* ADMIN RESET */
+.admin-link{font-size:12px;color:var(--text-hint);cursor:pointer;text-decoration:underline;display:inline-block;margin-top:12px}
+.admin-panel{margin-top:10px;padding:12px;background:#f9f9f7;border:1px solid var(--border);border-radius:var(--radius-sm);display:none;text-align:left}
+.admin-panel.show{display:block}
+.admin-panel input{width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-size:14px;margin-bottom:8px;letter-spacing:.15em;text-align:center;outline:none}
+.admin-panel input:focus{border-color:var(--green)}
+.btn-reset{width:100%;padding:10px;background:#c0392b;color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer}
+.btn-reset:hover{background:#a93226}
 </style>
 </head>
 <body>
@@ -154,9 +179,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     <div class="login-logo">AGF<br>MSC</div>
     <h1>Ventas Congreso</h1>
     <p>AGF Messenchymal Argentina<br>Acceso restringido al equipo</p>
-    <input type="password" id="pwd-input" placeholder="Contraseña" onkeydown="if(event.key==='Enter')login()">
-    <button onclick="login()">Ingresar</button>
-    <div class="login-err" id="login-err"></div>
+    <div id="login-step1">
+      <input type="password" id="pwd-input" placeholder="Contraseña" onkeydown="if(event.key==='Enter')login()">
+      <button onclick="login()">Ingresar</button>
+      <div class="login-err" id="login-err"></div>
+      <span class="admin-link" onclick="toggleAdmin()">Administrador</span>
+      <div class="admin-panel" id="admin-panel">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600">Resetear contadores de venta</div>
+        <input type="password" id="admin-pwd" placeholder="Contraseña" onkeydown="if(event.key==='Enter')resetContadores()">
+        <button class="btn-reset" onclick="resetContadores()">Resetear A = 1 · B = 1001</button>
+        <div class="login-err" id="admin-err"></div>
+      </div>
+    </div>
+    <div id="login-step2" style="display:none">
+      <p style="font-size:14px;color:var(--text-muted);margin-bottom:12px">Seleccioná tu dispositivo</p>
+      <div class="device-sel">
+        <button class="device-btn" onclick="selDevice('A')">
+          Dispositivo A<br><span id="vnum-a-lbl" style="font-size:11px;font-weight:400;color:var(--text-muted)">Venta #1</span>
+        </button>
+        <button class="device-btn" onclick="selDevice('B')">
+          Dispositivo B<br><span id="vnum-b-lbl" style="font-size:11px;font-weight:400;color:var(--text-muted)">Venta #1001</span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -167,6 +212,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     <div>
       <h1>AGF Messenchymal</h1>
       <p id="vnlbl">Ventas congreso · Venta #1</p>
+    </div>
+    <div id="conn-badge" class="online">
+      <span class="cbdot online"></span>
+      <span id="conn-text">En línea</span>
     </div>
   </div>
 
@@ -287,7 +336,9 @@ const PASSWORD        = "agf2025";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAEQAkX973fbps_xkvwKtoYhgoHjMMxZpRRpUd0VaxA-U2OFmehVubmnmhB72flds3/exec";
 const PRODS           = ["Dermal","Capillary","Pink","Biomask"];
 const P_CERRADA       = 750, P_COMBINADA = 900;
-let vNum = parseInt(localStorage.getItem("agf_vnum")||"1");
+const DEVICE_RANGES = {A:1, B:1001};
+let deviceId = "";
+let vNum = 1;
 let cajas = [], metodo = "", moneda = "ARS", condFiscal = "";
 
 // LOGIN
@@ -311,30 +362,56 @@ async function cargarTipoCambio(){
 }
 
 function login(){
-  if(document.getElementById("pwd-input").value === PASSWORD){
-    sessionStorage.setItem("agf_auth","1");
-    document.getElementById("login-screen").style.display="none";
-    document.getElementById("app-screen").style.display="block";
-    agregarCaja();
-    cargarTipoCambio(); // ← línea nueva
-  } else {
+  if(document.getElementById("pwd-input").value===PASSWORD){
+    const vnA=parseInt(localStorage.getItem("agf_vnum_A")||DEVICE_RANGES.A);
+    const vnB=parseInt(localStorage.getItem("agf_vnum_B")||DEVICE_RANGES.B);
+    document.getElementById("vnum-a-lbl").textContent="Próxima venta #"+vnA;
+    document.getElementById("vnum-b-lbl").textContent="Próxima venta #"+vnB;
+    document.getElementById("login-step1").style.display="none";
+    document.getElementById("login-step2").style.display="block";
+  }else{
     document.getElementById("login-err").textContent="Contraseña incorrecta.";
     document.getElementById("pwd-input").value="";
   }
 }
-window.addEventListener("load",()=>{
-  if(sessionStorage.getItem("agf_auth")==="1"){
-    document.getElementById("login-screen").style.display="none";
-    document.getElementById("app-screen").style.display="block";
-    agregarCaja();
-    cargarTipoCambio(); // ← línea nueva
+function selDevice(d){
+  deviceId=d;
+  vNum=parseInt(localStorage.getItem("agf_vnum_"+d)||DEVICE_RANGES[d]);
+  sessionStorage.setItem("agf_auth","1");
+  sessionStorage.setItem("agf_device",d);
+  enterApp();
+}
+function enterApp(){
+  document.getElementById("login-screen").style.display="none";
+  document.getElementById("app-screen").style.display="block";
+  document.getElementById("vnlbl").textContent="Dispositivo "+deviceId+" · Venta #"+vNum;
+  document.getElementById("vnum-badge").textContent="Venta #"+vNum;
+  agregarCaja();
+  cargarTipoCambio();
+}
+function toggleAdmin(){
+  const p=document.getElementById("admin-panel");
+  p.className=p.classList.contains("show")?"admin-panel":"admin-panel show";
+}
+function resetContadores(){
+  if(document.getElementById("admin-pwd").value!==PASSWORD){
+    document.getElementById("admin-err").textContent="Contraseña incorrecta.";
+    document.getElementById("admin-pwd").value="";
+    return;
   }
-});
+  if(!confirm("¿Resetear contadores?\nDispositivo A → Venta #1\nDispositivo B → Venta #1001"))return;
+  localStorage.setItem("agf_vnum_A",DEVICE_RANGES.A);
+  localStorage.setItem("agf_vnum_B",DEVICE_RANGES.B);
+  document.getElementById("admin-pwd").value="";
+  document.getElementById("admin-err").textContent="";
+  document.getElementById("admin-panel").className="admin-panel";
+  alert("Contadores reseteados:\nDispositivo A = 1\nDispositivo B = 1001");
+}
 window.addEventListener("load",()=>{
   if(sessionStorage.getItem("agf_auth")==="1"){
-    document.getElementById("login-screen").style.display="none";
-    document.getElementById("app-screen").style.display="block";
-    agregarCaja();
+    deviceId=sessionStorage.getItem("agf_device")||"A";
+    vNum=parseInt(localStorage.getItem("agf_vnum_"+deviceId)||DEVICE_RANGES[deviceId]);
+    enterApp();
   }
 });
 
@@ -505,27 +582,37 @@ async function confirmar(){
   if(cajas.length===0){alert("Agregá al menos una caja.");return;}
   if(cajas.find(x=>x.tipo==="combinada"&&x.slots.length<5)){alert("Completá los 5 productos de cada caja combinada.");return;}
   if(!metodo){alert("Seleccioná un método de cobro.");return;}
-  document.getElementById("modal-title").textContent="Procesando venta...";
+  const _p=buildPayload();
+  document.getElementById("modal-title").textContent="Venta #"+vNum+" confirmada ✓";
   document.getElementById("modal-vnum").textContent="Venta #"+vNum;
-  setRow("sheet","loading","Guardando en Google Sheets...");
+  setRow("sheet","loading","Enviando en segundo plano...");
   setRow("mail","loading","Preparando email...");
   document.getElementById("overlay").className="modal-overlay show";
   document.getElementById("btn-confirmar").disabled=true;
-  try{
-    await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(buildPayload())});
-    setRow("sheet","ok","Guardado en Google Sheets ✓");
-    setRow("mail","ok","Email enviado al cliente ✓");
-    document.getElementById("modal-title").textContent="Venta #"+vNum+" registrada ✓";
-  }catch(err){
-    setRow("sheet","err","Error de red: "+err.message);
-    setRow("mail","err","No se pudo enviar el mail");
-    document.getElementById("modal-title").textContent="Error de conexión";
-    document.getElementById("btn-confirmar").disabled=false;
+  if(!navigator.onLine){
+    saveToQueue(_p).then(()=>{
+      setRow("sheet","warn","Sin conexión — en cola offline");
+      setRow("mail","warn","Se enviará al reconectar");
+      updateConnBadge();
+    });
+  }else{
+    fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(_p)})
+      .then(()=>{
+        setRow("sheet","ok","Guardado en Google Sheets ✓");
+        setRow("mail","ok","Email enviado al cliente ✓");
+      })
+      .catch(()=>{
+        saveToQueue(_p).then(()=>{
+          setRow("sheet","warn","Sin red — en cola offline");
+          setRow("mail","warn","Se enviará al reconectar");
+          updateConnBadge();
+        });
+      });
   }
 }
 function setRow(id,est,sub){
-  document.getElementById("row-"+id).className="srow"+(est==="ok"?" ok":est==="err"?" err":"");
-  document.getElementById("dot-"+id).className="sdot "+(est==="ok"?"sdot-ok":est==="err"?"sdot-err":"sdot-spin");
+  document.getElementById("row-"+id).className="srow"+(est==="ok"?" ok":est==="err"?" err":est==="warn"?" warn":"");
+  document.getElementById("dot-"+id).className="sdot "+(est==="ok"?"sdot-ok":est==="err"?"sdot-err":est==="warn"?"sdot-warn":"sdot-spin");
   document.getElementById("sub-"+id).textContent=sub;
 }
 
@@ -590,9 +677,9 @@ function imprimirRecibo(){
 function cerrar(){ document.getElementById("overlay").className="modal-overlay"; document.getElementById("btn-confirmar").disabled=false; }
 function nuevaVenta(){
   vNum++;
-  localStorage.setItem("agf_vnum", vNum);
+  localStorage.setItem("agf_vnum_"+deviceId, vNum);
   cajas=[]; cajaId=0; condFiscal="";
-  document.getElementById("vnlbl").textContent="Ventas congreso · Venta #"+vNum;
+  document.getElementById("vnlbl").textContent="Dispositivo "+deviceId+" · Venta #"+vNum;
   document.getElementById("vnum-badge").textContent="Venta #"+vNum;
   ["nombre","apellido","cuit","mail","tel","localidad","razon-social","cuit-facturacion"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   document.getElementById("desc-global").value="0";
@@ -607,6 +694,104 @@ function nuevaVenta(){
   document.querySelector('.moneda-btn[data-moneda="ARS"]').classList.add("on");
   agregarCaja(); cerrar();
 }
+</script>
+
+<script>
+// ── OFFLINE / INDEXEDDB ─────────────────────────────────────────────────
+
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('agf_db',1);
+    r.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains('pending_ventas'))
+        db.createObjectStore('pending_ventas',{keyPath:'id',autoIncrement:true});
+    };
+    r.onsuccess=e=>res(e.target.result);
+    r.onerror=e=>rej(e.target.error);
+  });
+}
+async function saveToQueue(payload){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const r=db.transaction('pending_ventas','readwrite').objectStore('pending_ventas').add({payload,ts:Date.now()});
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+  });
+}
+async function getPendingCount(){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const r=db.transaction('pending_ventas','readonly').objectStore('pending_ventas').count();
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+  });
+}
+async function getAllPending(){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const r=db.transaction('pending_ventas','readonly').objectStore('pending_ventas').getAll();
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+  });
+}
+async function deleteFromQueue(id){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const r=db.transaction('pending_ventas','readwrite').objectStore('pending_ventas').delete(id);
+    r.onsuccess=()=>res();
+    r.onerror=()=>rej(r.error);
+  });
+}
+
+async function updateConnBadge(){
+  const badge=document.getElementById('conn-badge');
+  if(!badge)return;
+  const dot=badge.querySelector('.cbdot');
+  const txt=document.getElementById('conn-text');
+  const count=await getPendingCount();
+  const online=navigator.onLine;
+  const good=online&&count===0;
+  badge.className=good?'online':'offline';
+  dot.className='cbdot '+(good?'online':'offline');
+  if(good){txt.textContent='En línea';}
+  else if(!online&&count===0){txt.textContent='Sin red';}
+  else if(online&&count>0){txt.textContent=count+' pendiente'+(count>1?'s':'')+' — sincronizando...';}
+  else{txt.textContent='Sin red · '+count+' pendiente'+(count>1?'s':'');}
+}
+
+async function syncQueue(){
+  const pending=await getAllPending();
+  if(!pending.length){updateConnBadge();return;}
+  let synced=0;
+  for(const item of pending){
+    try{
+      await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(item.payload)});
+      await deleteFromQueue(item.id);
+      synced++;
+    }catch(e){break;}
+  }
+  updateConnBadge();
+}
+
+window.addEventListener('online',()=>{
+  updateConnBadge();
+  syncQueue();
+  if('serviceWorker' in navigator&&'SyncManager' in window){
+    navigator.serviceWorker.ready.then(reg=>reg.sync.register('agf-sync').catch(()=>{}));
+  }
+});
+window.addEventListener('offline',()=>updateConnBadge());
+
+// Service Worker
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('SW:',err));
+  });
+}
+
+// Init badge
+window.addEventListener('load',()=>updateConnBadge());
 </script>
 </body>
 </html>
