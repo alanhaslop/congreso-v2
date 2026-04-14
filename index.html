@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGF Messenchymal — Ventas Congreso</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#1D9E75;--green-dark:#0F6E56;--green-light:#E1F5EE;
+  --bg:#f5f5f3;--surface:#fff;--border:#e0e0da;
+  --text:#1a1a1a;--text-muted:#666;--text-hint:#999;
+  --radius:10px;--radius-sm:7px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:2rem;width:100%;max-width:340px;text-align:center}
+.login-logo{width:52px;height:52px;border-radius:var(--radius-sm);background:var(--green);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;line-height:1.3;margin:0 auto 1.25rem}
+.login-card h1{font-size:17px;font-weight:600;margin-bottom:4px}
+.login-card p{font-size:13px;color:var(--text-muted);margin-bottom:1.5rem}
+.login-card input{width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;font-size:15px;outline:none;margin-bottom:10px;letter-spacing:.15em;text-align:center}
+.login-card input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,.12)}
+.login-card button{width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer}
+.login-card button:hover{background:var(--green-dark)}
+.login-err{font-size:13px;color:#c0392b;margin-top:8px;min-height:18px}
+
+#app-screen{display:none;max-width:740px;margin:0 auto;padding:1.25rem 1rem 3rem}
+.header{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem}
+.logo{width:46px;height:46px;border-radius:var(--radius-sm);background:var(--green);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;line-height:1.3;text-align:center;flex-shrink:0}
+.header h1{font-size:18px;font-weight:600}
+.header p{font-size:13px;color:var(--text-muted)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.875rem}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--text-muted);font-weight:500}
+.field input,.field select{border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-size:15px;color:var(--text);outline:none;background:#fafaf9;width:100%}
+.field input:focus,.field select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,.1);background:#fff}
+.span2{grid-column:span 2}
+
+/* CAJAS */
+.cajas-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem}
+.btn-add-caja{padding:7px 14px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer}
+.btn-add-caja:hover{background:var(--green-dark)}
+.caja-item{border:1px solid var(--border);border-radius:var(--radius-sm);padding:.875rem;margin-bottom:.75rem;background:#fafaf9;position:relative}
+.caja-item.combinada{border-color:#9FE1CB;background:#f0faf6}
+.caja-header-row{display:flex;align-items:center;gap:10px;margin-bottom:.75rem}
+.caja-num{font-size:12px;font-weight:700;color:var(--text-muted);min-width:50px}
+.tipo-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex:1}
+.tipo-btn{flex:1;padding:8px;font-size:13px;font-weight:500;border:none;background:#fff;color:var(--text-muted);cursor:pointer;transition:all .12s}
+.tipo-btn.on{background:var(--green);color:#fff}
+.btn-del-caja{width:28px;height:28px;border-radius:50%;border:1px solid #fcc;background:#fff;color:#c0392b;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn-del-caja:hover{background:#fdecea}
+.prod-select-row{display:flex;align-items:center;gap:10px}
+.prod-select-row select{flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;font-size:14px;background:#fff;outline:none}
+.prod-select-row select:focus{border-color:var(--green)}
+.precio-caja{font-size:14px;font-weight:600;color:var(--green-dark);min-width:70px;text-align:right}
+.slots-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.slot-btn{padding:6px 4px;font-size:12px;font-weight:500;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:#fff;color:var(--text-muted);text-align:center;transition:all .12s;line-height:1.2}
+.slot-btn.filled{background:var(--green);border-color:var(--green);color:#fff}
+.slots-label{font-size:11px;color:var(--text-muted);margin-bottom:4px}
+.slots-count{font-size:12px;color:var(--text-muted);margin-top:4px}
+.slots-count.complete{color:var(--green);font-weight:600}
+.prod-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:.5rem}
+.prod-pill{padding:5px 10px;font-size:12px;font-weight:500;border:1px solid var(--border);border-radius:20px;cursor:pointer;background:#fff;color:var(--text-muted)}
+.prod-pill.on{background:var(--green);border-color:var(--green);color:#fff}
+.combo-precio-row{display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)}
+.desc-row{display:flex;align-items:center;gap:8px;margin-top:.5rem}
+.desc-row label{font-size:12px;color:var(--text-muted);min-width:80px}
+.desc-row input{border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-size:13px;width:90px;outline:none;background:#fff}
+.desc-row input:focus{border-color:var(--green)}
+.desc-row span{font-size:12px;color:var(--text-muted)}
+
+/* COBRO */
+.metodo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.metodo-btn{padding:10px 6px;font-size:13px;font-weight:500;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:#fff;color:var(--text-muted);text-align:center;transition:all .12s}
+.metodo-btn.on{border-color:var(--green);background:var(--green-light);color:var(--green-dark);font-weight:600}
+.moneda-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;width:fit-content}
+.moneda-btn{padding:9px 20px;font-size:14px;font-weight:500;border:none;background:#fff;color:var(--text-muted);cursor:pointer}
+.moneda-btn.on{background:var(--green);color:#fff;font-weight:600}
+.tc-row{display:flex;align-items:center;gap:8px;margin-top:.75rem}
+.tc-row label{font-size:13px;color:var(--text-muted)}
+.tc-row input{border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;font-size:14px;width:120px;outline:none;background:#fff}
+.tc-row input:focus{border-color:var(--green)}
+
+/* FACTURACIÓN */
+.cond-fiscal-grid{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.875rem}
+.cond-btn{padding:8px 14px;font-size:13px;font-weight:500;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:#fff;color:var(--text-muted);transition:all .12s}
+.cond-btn.on{border-color:var(--green);background:var(--green-light);color:var(--green-dark);font-weight:600}
+.mismos-datos-row{display:flex;align-items:center;gap:10px;padding:.65rem .875rem;background:#f5f5f3;border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:.75rem}
+.mismos-datos-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--green);cursor:pointer;flex-shrink:0}
+.mismos-datos-row label{font-size:13px;color:var(--text-muted);cursor:pointer}
+
+/* RESUMEN */
+.resumen-card{background:var(--surface);border:1.5px solid var(--green);border-radius:var(--radius);padding:1.1rem 1.25rem;margin-bottom:1rem}
+.resumen-row{display:flex;justify-content:space-between;font-size:14px;padding:4px 0;border-bottom:1px solid var(--border)}
+.resumen-row:last-child{border:none}
+.resumen-total{display:flex;justify-content:space-between;align-items:baseline;margin-top:.75rem;padding-top:.75rem;border-top:2px solid var(--green)}
+.resumen-total span:first-child{font-size:15px;font-weight:600}
+.resumen-total .amt-usd{font-size:28px;font-weight:700;color:var(--green-dark)}
+.resumen-total .amt-ars{font-size:16px;color:var(--text-muted);margin-left:8px}
+.desc-global-row{display:flex;align-items:center;gap:8px;margin-top:.75rem}
+.desc-global-row label{font-size:13px;color:var(--text-muted)}
+.desc-global-row input{border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:14px;width:100px;outline:none;background:#fff}
+.desc-global-row input:focus{border-color:var(--green)}
+
+.btn-confirmar{width:100%;padding:15px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;margin-bottom:6px}
+.btn-confirmar:hover{background:var(--green-dark)}
+.btn-confirmar:disabled{background:#ccc;cursor:not-allowed}
+.vnum{text-align:center;font-size:12px;color:var(--text-hint)}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius);width:100%;max-width:460px;overflow:hidden}
+.mhead{padding:1.1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.mhead h2{font-size:16px;font-weight:600}
+.mbody{padding:1.25rem}
+.srow{display:flex;align-items:flex-start;gap:12px;padding:.875rem 1rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:#fafaf9;margin-bottom:10px}
+.srow.ok{border-color:var(--green);background:var(--green-light)}
+.srow.err{border-color:#e74c3c;background:#fdf0f0}
+.sdot{width:11px;height:11px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.sdot-ok{background:var(--green)}
+.sdot-err{background:#e74c3c}
+.sdot-spin{background:#ccc;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{transform:scale(.6)}50%{transform:scale(1)}}
+.stitle{font-size:14px;font-weight:600;margin-bottom:2px}
+.ssub{font-size:12px;color:var(--text-muted)}
+.print-btn{width:100%;padding:11px;background:#fff;border:1px solid var(--green);color:var(--green);border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;margin-top:.25rem}
+.print-btn:hover{background:var(--green-light)}
+.mfooter{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:8px}
+.mfooter button{flex:1;padding:11px;border-radius:var(--radius-sm);font-size:14px;cursor:pointer;border:1px solid var(--border);background:#fff;font-weight:500}
+.mfooter button.pri{background:var(--green);color:#fff;border-color:var(--green);font-weight:600}
+.mfooter button.pri:hover{background:var(--green-dark)}
+
+@media print{body>*{display:none!important}#recibo-print{display:block!important;padding:28px;font-family:Arial,sans-serif;font-size:13px;color:#000}}
+#recibo-print{display:none}
+@media(max-width:520px){
+  .g2{grid-template-columns:1fr}
+  .span2{grid-column:span 1}
+  .metodo-grid{grid-template-columns:repeat(2,1fr)}
+  .slots-grid{grid-template-columns:repeat(5,1fr)}
+}
+</style>
+</head>
+<body>
+<div id="recibo-print"></div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">AGF<br>MSC</div>
+    <h1>Ventas Congreso</h1>
+    <p>AGF Messenchymal Argentina<br>Acceso restringido al equipo</p>
+    <input type="password" id="pwd-input" placeholder="Contraseña" onkeydown="if(event.key==='Enter')login()">
+    <button onclick="login()">Ingresar</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="header">
+    <div class="logo">AGF<br>MSC</div>
+    <div>
+      <h1>AGF Messenchymal</h1>
+      <p id="vnlbl">Ventas congreso · Venta #1</p>
+    </div>
+  </div>
+
+  <!-- 1. DATOS DEL CLIENTE -->
+  <div class="card">
+    <div class="card-title">Datos del cliente</div>
+    <div class="g2">
+      <div class="field"><label>Nombre</label><input id="nombre" placeholder="Ana" autocomplete="given-name"></div>
+      <div class="field"><label>Apellido</label><input id="apellido" placeholder="García" autocomplete="family-name"></div>
+      <div class="field"><label>CUIT / CUIL</label><input id="cuit" placeholder="20-12345678-0" maxlength="13" autocomplete="off" inputmode="numeric"></div>
+      <div class="field"><label>Teléfono</label><input id="tel" type="text" placeholder="+54 11 1234-5678" autocomplete="off" inputmode="tel"></div>
+      <div class="field span2"><label>Email</label><input id="mail" type="email" placeholder="ana@mail.com" autocomplete="email"></div>
+      <div class="field span2"><label>Localidad</label><input id="localidad" placeholder="Ciudad, Provincia" autocomplete="off"></div>
+    </div>
+  </div>
+
+  <!-- 2. CAJAS -->
+  <div class="card">
+    <div class="cajas-header">
+      <div class="card-title" style="margin:0">Cajas</div>
+      <button class="btn-add-caja" onclick="agregarCaja()">+ Agregar caja</button>
+    </div>
+    <div id="cajas-container"></div>
+  </div>
+
+  <!-- 3. MÉTODO DE COBRO -->
+  <div class="card">
+    <div class="card-title">Método de cobro</div>
+    <div class="metodo-grid">
+      <div class="metodo-btn" onclick="selMetodo(this,'Tarjeta')">💳 Tarjeta</div>
+      <div class="metodo-btn" onclick="selMetodo(this,'Efectivo')">💵 Efectivo</div>
+      <div class="metodo-btn" onclick="selMetodo(this,'Transferencia')">🏦 Transferencia</div>
+      <div class="metodo-btn" onclick="selMetodo(this,'QR')">📱 QR</div>
+    </div>
+    <div id="moneda-toggle" class="moneda-toggle" style="display:none;margin-top:1rem">
+      <button class="moneda-btn on" data-moneda="USD" onclick="selMoneda('USD',this)">U$D</button>
+      <button class="moneda-btn" data-moneda="ARS" onclick="selMoneda('ARS',this)">AR$</button>
+    </div>
+    <div class="tc-row" id="tc-row" style="margin-top:1rem">
+      <label>Tipo de cambio:</label>
+      <input type="number" id="tc-input" value="1300" min="1" oninput="calcResumen()">
+      <span style="font-size:13px;color:var(--text-muted)">AR$/U$D</span>
+    </div>
+    <div id="moneda-label" style="margin-top:.5rem;font-size:12px;color:var(--text-muted)">Cobrando en AR$ · Efectivo y Transferencia pueden usar U$D</div>
+  </div>
+
+  <!-- 4. DATOS DE FACTURACIÓN -->
+  <div class="card">
+    <div class="card-title">Datos de facturación</div>
+    <div style="font-size:12px;color:var(--text-muted);font-weight:500;margin-bottom:.6rem">Condición fiscal</div>
+    <div class="cond-fiscal-grid">
+      <button class="cond-btn" onclick="selCondFiscal(this,'Sin factura')">Sin factura</button>
+      <button class="cond-btn" onclick="selCondFiscal(this,'Resp. Inscripto')">Resp. Inscr.</button>
+      <button class="cond-btn" onclick="selCondFiscal(this,'Monotributista')">Monotributista</button>
+      <button class="cond-btn" onclick="selCondFiscal(this,'Cons. Final')">Cons. Final</button>
+    </div>
+    <div class="mismos-datos-row">
+      <input type="checkbox" id="mismos-datos" checked onchange="toggleDatosFacturacion()">
+      <label for="mismos-datos">Mismos datos que los datos de contacto</label>
+    </div>
+    <div id="datos-facturacion-extra" style="display:none">
+      <div class="g2">
+        <div class="field span2"><label>Razón social</label><input id="razon-social" placeholder="Empresa S.A." autocomplete="off"></div>
+        <div class="field span2"><label>CUIT de facturación</label><input id="cuit-facturacion" placeholder="30-12345678-0" maxlength="13" autocomplete="off" inputmode="numeric"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESUMEN -->
+  <div class="resumen-card">
+    <div class="card-title">Resumen de venta</div>
+    <div id="resumen-lineas"></div>
+    <div class="desc-global-row">
+      <label>Descuento global:</label>
+      <input type="number" id="desc-global" value="0" min="0" max="100" placeholder="0" oninput="calcResumen()">
+      <span style="font-size:13px;color:var(--text-muted)">%</span>
+    </div>
+    <div class="resumen-total">
+      <span>Total</span>
+      <div>
+        <span class="amt-usd" id="total-usd">u$0</span>
+        <span class="amt-ars" id="total-ars"></span>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-confirmar" id="btn-confirmar" onclick="confirmar()">Confirmar venta</button>
+  <div class="vnum" id="vnum-badge">Venta #1</div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="overlay">
+  <div class="modal">
+    <div class="mhead">
+      <h2 id="modal-title">Procesando...</h2>
+      <span style="font-size:12px;color:var(--text-muted)" id="modal-vnum"></span>
+    </div>
+    <div class="mbody">
+      <div class="srow" id="row-sheet">
+        <div class="sdot sdot-spin" id="dot-sheet"></div>
+        <div><div class="stitle">Guardando en Google Sheets</div><div class="ssub" id="sub-sheet">Enviando...</div></div>
+      </div>
+      <div class="srow" id="row-mail">
+        <div class="sdot sdot-spin" id="dot-mail"></div>
+        <div><div class="stitle">Enviando mail al cliente</div><div class="ssub" id="sub-mail">Conectando...</div></div>
+      </div>
+      <button class="print-btn" onclick="imprimirRecibo()">Imprimir recibo para la administrativa</button>
+    </div>
+    <div class="mfooter">
+      <button onclick="cerrar()">Volver</button>
+      <button class="pri" onclick="nuevaVenta()">Nueva venta</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PASSWORD        = "agf2025";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAEQAkX973fbps_xkvwKtoYhgoHjMMxZpRRpUd0VaxA-U2OFmehVubmnmhB72flds3/exec";
+const PRODS           = ["Dermal","Capillary","Pink","Biomask"];
+const P_CERRADA       = 750, P_COMBINADA = 900;
+let vNum = parseInt(localStorage.getItem("agf_vnum")||"1");
+let cajas = [], metodo = "", moneda = "ARS", condFiscal = "";
+
+// LOGIN
+async function cargarTipoCambio(){
+  try{
+    const res  = await fetch("https://dolarapi.com/v1/dolares/oficial");
+    const data = await res.json();
+    // Usamos el valor de venta del dólar oficial BNA
+    if(data && data.venta){
+      const tc = Math.round(data.venta);
+      document.getElementById("tc-input").value = tc;
+      document.getElementById("tc-label-info").textContent =
+        "TC BNA oficial: $" + tc.toLocaleString("es-AR") + " (actualizado)";
+      calcResumen();
+    }
+  } catch(e){
+    // Si falla, deja el valor por defecto (1300) sin error visible
+    document.getElementById("tc-label-info").textContent =
+      "No se pudo obtener el TC automático — ajustalo manualmente";
+  }
+}
+
+function login(){
+  if(document.getElementById("pwd-input").value === PASSWORD){
+    sessionStorage.setItem("agf_auth","1");
+    document.getElementById("login-screen").style.display="none";
+    document.getElementById("app-screen").style.display="block";
+    agregarCaja();
+    cargarTipoCambio(); // ← línea nueva
+  } else {
+    document.getElementById("login-err").textContent="Contraseña incorrecta.";
+    document.getElementById("pwd-input").value="";
+  }
+}
+window.addEventListener("load",()=>{
+  if(sessionStorage.getItem("agf_auth")==="1"){
+    document.getElementById("login-screen").style.display="none";
+    document.getElementById("app-screen").style.display="block";
+    agregarCaja();
+    cargarTipoCambio(); // ← línea nueva
+  }
+});
+window.addEventListener("load",()=>{
+  if(sessionStorage.getItem("agf_auth")==="1"){
+    document.getElementById("login-screen").style.display="none";
+    document.getElementById("app-screen").style.display="block";
+    agregarCaja();
+  }
+});
+
+// CONDICIÓN FISCAL
+function selCondFiscal(el,val){
+  document.querySelectorAll(".cond-btn").forEach(b=>b.classList.remove("on"));
+  el.classList.add("on"); condFiscal=val;
+}
+function toggleDatosFacturacion(){
+  const checked=document.getElementById("mismos-datos").checked;
+  document.getElementById("datos-facturacion-extra").style.display=checked?"none":"block";
+}
+function getDatosFacturacion(){
+  const mismos=document.getElementById("mismos-datos").checked;
+  if(mismos){
+    const c=getCliente();
+    return{razonSocial:c.nombre+" "+c.apellido,cuitFacturacion:c.cuit,mismosContacto:true};
+  }
+  return{
+    razonSocial:     document.getElementById("razon-social").value.trim(),
+    cuitFacturacion: document.getElementById("cuit-facturacion").value.trim(),
+    mismosContacto:  false
+  };
+}
+
+// CAJAS
+let cajaId=0;
+function agregarCaja(){ const id=++cajaId; cajas.push({id,tipo:"cerrada",producto:PRODS[0],slots:[],descPct:0}); renderCajas(); }
+function eliminarCaja(id){ cajas=cajas.filter(c=>c.id!==id); renderCajas(); }
+function cambiarTipoCaja(id,tipo){ const c=cajas.find(x=>x.id===id); c.tipo=tipo; c.slots=[]; renderCajas(); }
+function cambiarProducto(id,prod){ cajas.find(x=>x.id===id).producto=prod; calcResumen(); }
+function cambiarDescCaja(id,v){ cajas.find(x=>x.id===id).descPct=parseFloat(v)||0; calcResumen(); }
+function agregarSlot(id,prod){ const c=cajas.find(x=>x.id===id); if(c.slots.length>=5)return; c.slots.push(prod); renderCajas(); }
+function quitarSlot(id,idx){ cajas.find(x=>x.id===id).slots.splice(idx,1); renderCajas(); }
+
+function renderCajas(){
+  const cont=document.getElementById("cajas-container");
+  cont.innerHTML="";
+  const tc=parseFloat(document.getElementById("tc-input")?.value)||1300;
+  cajas.forEach((c,i)=>{
+    const div=document.createElement("div");
+    div.className="caja-item"+(c.tipo==="combinada"?" combinada":"");
+    let inner=`
+      <div class="caja-header-row">
+        <span class="caja-num">Caja ${i+1}</span>
+        <div class="tipo-toggle">
+          <button class="tipo-btn${c.tipo==="cerrada"?" on":""}" onclick="cambiarTipoCaja(${c.id},'cerrada')">Cerrada u$${P_CERRADA}</button>
+          <button class="tipo-btn${c.tipo==="combinada"?" on":""}" onclick="cambiarTipoCaja(${c.id},'combinada')">Combinada u$${P_COMBINADA}</button>
+        </div>
+        ${cajas.length>1?`<button class="btn-del-caja" onclick="eliminarCaja(${c.id})">×</button>`:""}
+      </div>`;
+    const precioFinal=precioConDesc(c.tipo==="cerrada"?P_CERRADA:P_COMBINADA,c.descPct);
+    const precioDisplay=moneda==="USD"
+      ?`u$${precioFinal.toLocaleString("es-AR")}`
+      :`u$${precioFinal.toLocaleString("es-AR")}<br><span style="font-size:11px;color:#666">AR$${(precioFinal*tc).toLocaleString("es-AR")}</span>`;
+    if(c.tipo==="cerrada"){
+      inner+=`<div class="prod-select-row">
+        <select onchange="cambiarProducto(${c.id},this.value)">
+          ${PRODS.map(p=>`<option${p===c.producto?" selected":""}>${p}</option>`).join("")}
+        </select>
+        <span class="precio-caja">${precioDisplay}</span>
+      </div>`;
+    } else {
+      const completa=c.slots.length===5;
+      inner+=`<div class="slots-label">Elegí los 5 productos (tocá para quitar):</div>
+      <div class="slots-grid">
+        ${c.slots.map((p,idx)=>`<div class="slot-btn filled" onclick="quitarSlot(${c.id},${idx})">${p}</div>`).join("")}
+        ${Array(5-c.slots.length).fill('<div class="slot-btn">—</div>').join("")}
+      </div>
+      ${!completa?`<div class="prod-pills">${PRODS.map(p=>`<button class="prod-pill" onclick="agregarSlot(${c.id},'${p}')">${p}</button>`).join("")}</div>`:""}
+      <div class="combo-precio-row">
+        <span class="slots-count${completa?" complete":""}">${c.slots.length}/5 unidades${completa?" — completa":""}</span>
+        <span class="precio-caja">${precioDisplay}</span>
+      </div>`;
+    }
+    inner+=`<div class="desc-row">
+      <label>Descuento:</label>
+      <input type="number" value="${c.descPct}" min="0" max="100" onchange="cambiarDescCaja(${c.id},this.value)">
+      <span>%</span>
+    </div>`;
+    div.innerHTML=inner; cont.appendChild(div);
+  });
+  calcResumen();
+}
+function precioConDesc(precio,pct){ return Math.round(precio*(1-(pct||0)/100)); }
+
+// MÉTODO Y MONEDA
+function selMetodo(el,m){
+  document.querySelectorAll(".metodo-btn").forEach(b=>b.classList.remove("on"));
+  el.classList.add("on"); metodo=m;
+  if(m==="Efectivo"||m==="Transferencia"){
+    moneda="USD";
+    document.getElementById("tc-row").style.display="none";
+    document.getElementById("moneda-toggle").style.display="flex";
+    document.getElementById("moneda-label").textContent=m+": cobrando en U$D (podés cambiar a AR$ abajo)";
+  } else {
+    moneda="ARS";
+    document.getElementById("tc-row").style.display="flex";
+    document.getElementById("moneda-toggle").style.display="none";
+    document.getElementById("moneda-label").textContent="Cobrando en AR$ · Efectivo y Transferencia pueden usar U$D";
+  }
+  document.querySelectorAll(".moneda-btn").forEach(b=>b.classList.remove("on"));
+  document.querySelector(`.moneda-btn[data-moneda="${moneda}"]`).classList.add("on");
+  calcResumen();
+}
+function selMoneda(m,el){
+  if(metodo!=="Efectivo"&&metodo!=="Transferencia")return;
+  document.querySelectorAll(".moneda-btn").forEach(b=>b.classList.remove("on"));
+  el.classList.add("on"); moneda=m;
+  document.getElementById("tc-row").style.display=m==="USD"?"none":"flex";
+  document.getElementById("moneda-label").textContent=metodo+": cobrando en "+(m==="USD"?"U$D":"AR$");
+  calcResumen();
+}
+
+// RESUMEN
+function calcResumen(){
+  const descGlobal=parseFloat(document.getElementById("desc-global").value)||0;
+  const tc=parseFloat(document.getElementById("tc-input")?.value)||1300;
+  let totalUSD=0;
+  const linesHTML=cajas.map((c,i)=>{
+    const precioBase=c.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
+    const precioDesc=precioConDesc(precioBase,c.descPct);
+    const precioFinal=Math.round(precioDesc*(1-descGlobal/100));
+    totalUSD+=precioFinal;
+    const desc=c.tipo==="cerrada"?c.producto:`Combinada (${c.slots.join(", ")||"sin completar"})`;
+    const display=moneda==="USD"
+      ?`u$${precioFinal.toLocaleString("es-AR")}`
+      :`u$${precioFinal.toLocaleString("es-AR")} <span style="font-size:12px;color:#888">/ AR$${(precioFinal*tc).toLocaleString("es-AR")}</span>`;
+    return`<div class="resumen-row"><span>Caja ${i+1} — ${desc}</span><span>${display}</span></div>`;
+  }).join("");
+  document.getElementById("resumen-lineas").innerHTML=linesHTML;
+  document.getElementById("total-usd").textContent=`u$${totalUSD.toLocaleString("es-AR")}`;
+  document.getElementById("total-ars").textContent=moneda==="ARS"?`= AR$${(totalUSD*tc).toLocaleString("es-AR")}` :"";
+}
+
+// CLIENTE / PAYLOAD
+function getCliente(){
+  return{
+    nombre:    document.getElementById("nombre").value.trim(),
+    apellido:  document.getElementById("apellido").value.trim(),
+    cuit:      document.getElementById("cuit").value.trim(),
+    mail:      document.getElementById("mail").value.trim(),
+    tel:       document.getElementById("tel").value.trim(),
+    localidad: document.getElementById("localidad").value.trim()
+  };
+}
+function buildPayload(){
+  const c=getCliente();
+  const facturacion=getDatosFacturacion();
+  const descGlobal=parseFloat(document.getElementById("desc-global").value)||0;
+  const tc=parseFloat(document.getElementById("tc-input")?.value)||1300;
+  let totalUSD=0;
+  const lineas=cajas.map((caja,i)=>{
+    const precioBase=caja.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
+    const precioDesc=precioConDesc(precioBase,caja.descPct);
+    const precioFinal=Math.round(precioDesc*(1-descGlobal/100));
+    totalUSD+=precioFinal;
+    return{caja:i+1,tipo:caja.tipo,detalle:caja.tipo==="cerrada"?caja.producto:caja.slots.join(", "),descCaja:caja.descPct,precio:precioFinal};
+  });
+  const totalARS=moneda==="ARS"?Math.round(totalUSD*tc):null;
+  return{ventaNum:vNum,fecha:new Date().toLocaleString("es-AR"),cliente:c,facturacion,condFiscal,cajas:lineas,totalUSD,totalARS,moneda,tipoCambio:moneda==="ARS"?tc:null,metodoCobro:metodo,descuentoGlobal:descGlobal};
+}
+
+// CONFIRMAR
+async function confirmar(){
+  const c=getCliente();
+  if(!c.nombre||!c.apellido||!c.cuit){alert("Completá nombre, apellido y CUIT.");return;}
+  if(cajas.length===0){alert("Agregá al menos una caja.");return;}
+  if(cajas.find(x=>x.tipo==="combinada"&&x.slots.length<5)){alert("Completá los 5 productos de cada caja combinada.");return;}
+  if(!metodo){alert("Seleccioná un método de cobro.");return;}
+  document.getElementById("modal-title").textContent="Procesando venta...";
+  document.getElementById("modal-vnum").textContent="Venta #"+vNum;
+  setRow("sheet","loading","Guardando en Google Sheets...");
+  setRow("mail","loading","Preparando email...");
+  document.getElementById("overlay").className="modal-overlay show";
+  document.getElementById("btn-confirmar").disabled=true;
+  try{
+    await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/json"},body:JSON.stringify(buildPayload())});
+    setRow("sheet","ok","Guardado en Google Sheets ✓");
+    setRow("mail","ok","Email enviado al cliente ✓");
+    document.getElementById("modal-title").textContent="Venta #"+vNum+" registrada ✓";
+  }catch(err){
+    setRow("sheet","err","Error de red: "+err.message);
+    setRow("mail","err","No se pudo enviar el mail");
+    document.getElementById("modal-title").textContent="Error de conexión";
+    document.getElementById("btn-confirmar").disabled=false;
+  }
+}
+function setRow(id,est,sub){
+  document.getElementById("row-"+id).className="srow"+(est==="ok"?" ok":est==="err"?" err":"");
+  document.getElementById("dot-"+id).className="sdot "+(est==="ok"?"sdot-ok":est==="err"?"sdot-err":"sdot-spin");
+  document.getElementById("sub-"+id).textContent=sub;
+}
+
+// RECIBO
+function imprimirRecibo(){
+  const c=getCliente(); const p=buildPayload();
+  const tc=parseFloat(document.getElementById("tc-input")?.value)||1300;
+  const fecha=new Date().toLocaleDateString("es-AR")+" "+new Date().toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+  const filas=p.cajas.map(l=>{
+    const display=moneda==="USD"?`u$${l.precio.toLocaleString("es-AR")}`:`u$${l.precio.toLocaleString("es-AR")}<br><span style="font-size:11px;color:#888">AR$${Math.round(l.precio*tc).toLocaleString("es-AR")}</span>`;
+    const bg=l.caja%2===1?"background:#f8f8f6":"";
+    return`<tr style="${bg}"><td style="padding:7px 4px">${l.tipo==="cerrada"?`Caja ${l.caja} — Cerrada`:`Caja ${l.caja} — Combinada`}</td><td style="padding:7px 4px;color:#555;text-align:center;font-size:12px">${l.detalle}</td><td style="padding:7px 4px;text-align:right">${display}</td></tr>`;
+  });
+  if(p.descuentoGlobal>0) filas.push(`<tr style="border-top:1px solid #e8e8e0"><td colspan="2" style="padding:5px 4px;color:#999;font-size:11px;font-style:italic">Descuento global: ${p.descuentoGlobal}%</td><td style="padding:5px 4px;text-align:right;color:#b03a2e;font-size:11px">−u$${Math.round(p.totalUSD*p.descuentoGlobal/100).toLocaleString("es-AR")}${p.totalARS?`<br><span style="font-size:10px">AR$−${Math.round(p.totalARS*p.descuentoGlobal/100).toLocaleString("es-AR")}</span>`:""}</td></tr>`);
+  const totalDisplay=moneda==="USD"?`u$${p.totalUSD.toLocaleString("es-AR")}`:`<div style="margin-bottom:4px">u$${p.totalUSD.toLocaleString("es-AR")}</div><div style="font-size:18px">AR$${p.totalARS.toLocaleString("es-AR")}</div>`;
+  const facRowRecibo=p.condFiscal?`<tr><td style="padding:3px 0;color:#999">Cond. fiscal</td><td colspan="4" style="padding:3px 0">${p.condFiscal}${!p.facturacion.mismosContacto?` — ${p.facturacion.razonSocial} (${p.facturacion.cuitFacturacion})`:""}  </td></tr>`:"";
+  document.getElementById("recibo-print").innerHTML=`
+    <div style="padding:24px 32px 18px;border-bottom:2px solid #1B3A52;display:flex;justify-content:space-between;align-items:flex-end">
+      <div style="font-size:22px;font-weight:700;color:#1D9E75">AGF Messenchymal</div>
+      <div style="text-align:right"><div style="display:inline-block;border:1px solid #C9A8E0;padding:4px 12px;border-radius:3px;margin-bottom:6px"><span style="font-size:13px;color:#8B5BAE;letter-spacing:.08em">BAAS 2026</span></div><div style="font-size:9px;color:#888;line-height:1.7">dermacells.com.ar<br>Representante oficial en Argentina</div></div>
+    </div>
+    <div style="background:#1B3A52;padding:9px 32px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;color:#fff;text-transform:uppercase">Recibo de compra</div>
+      <div style="font-size:10px;color:#9FD4C0">Venta #${vNum} · ${fecha}</div>
+    </div>
+    <div style="padding:20px 32px 26px">
+      <div style="font-size:8.5px;font-weight:600;letter-spacing:.18em;color:#1B3A52;text-transform:uppercase;border-bottom:1px solid #1B3A52;padding-bottom:3px;margin-bottom:9px">Datos del cliente</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;table-layout:fixed">
+        <tr><td style="padding:3px 0;color:#999;width:22%">Nombre</td><td style="padding:3px 0;width:28%">${c.nombre} ${c.apellido}</td><td style="width:6%">&nbsp;</td><td style="padding:3px 0;color:#999;width:20%">CUIT / CUIL</td><td style="padding:3px 0;text-align:right;width:24%">${c.cuit}</td></tr>
+        <tr><td style="padding:3px 0;color:#999">Email</td><td style="padding:3px 0">${c.mail||"—"}</td><td>&nbsp;</td><td style="padding:3px 0;color:#999">Teléfono</td><td style="padding:3px 0;text-align:right">${c.tel||"—"}</td></tr>
+        <tr><td style="padding:3px 0;color:#999">Localidad</td><td colspan="4" style="padding:3px 0">${c.localidad||"—"}</td></tr>
+        ${facRowRecibo}
+      </table>
+      <div style="font-size:8.5px;font-weight:600;letter-spacing:.18em;color:#1B3A52;text-transform:uppercase;border-bottom:1px solid #1B3A52;padding-bottom:3px;margin-bottom:0">Detalle de cajas</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px">
+        <thead><tr style="border-bottom:1px solid #e8e8e0"><th style="padding:7px 0;text-align:left;font-weight:500;color:#555;font-size:10.5px">Descripción</th><th style="padding:7px 0;text-align:center;font-weight:500;color:#555;font-size:10.5px">Contenido</th><th style="padding:7px 0;text-align:right;font-weight:500;color:#555;font-size:10.5px">Importe</th></tr></thead>
+        <tbody>${filas.join("")}</tbody>
+      </table>
+      <div style="font-size:8.5px;font-weight:600;letter-spacing:.18em;color:#1B3A52;text-transform:uppercase;border-bottom:1px solid #1B3A52;padding-bottom:3px;margin-bottom:9px">Condiciones de cobro</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px;table-layout:fixed">
+        <tr><td style="padding:3px 0;color:#999;width:22%">Método</td><td style="padding:3px 0;width:28%">${p.metodoCobro}</td><td style="width:6%">&nbsp;</td><td style="padding:3px 0;color:#999;width:20%">Moneda</td><td style="padding:3px 0;text-align:right;width:24%">${moneda==="USD"?"Dólares americanos":"Pesos argentinos"}</td></tr>
+        ${p.tipoCambio?`<tr><td style="padding:3px 0;color:#999">Tipo de cambio</td><td style="padding:3px 0">$${p.tipoCambio.toLocaleString("es-AR")} AR$/U$D</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>`:""}
+      </table>
+      <div style="border-top:1.5px solid #1B3A52;padding-top:12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:#999;letter-spacing:.08em;text-transform:uppercase">Total</span>
+        <div style="font-size:22px;font-weight:700;color:#1B3A52;text-align:right">${totalDisplay}</div>
+      </div>
+      <div style="display:flex;gap:2rem;margin-top:2.5rem">
+        <div style="flex:1;border-top:1px solid #1B3A52;padding-top:5px;font-size:9px;color:#aaa">Firma y aclaración del cliente</div>
+        <div style="flex:1;border-top:1px solid #1B3A52;padding-top:5px;font-size:9px;color:#aaa">Firma del responsable</div>
+        <div style="flex:1;border-top:1px solid #1B3A52;padding-top:5px;font-size:9px;color:#aaa">Fecha de entrega</div>
+      </div>
+    </div>
+    <div style="background:#f7f7f5;border-top:1px solid #e8e8e0;padding:9px 32px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:8.5px;color:#bbb">Documento válido como comprobante de compra</div>
+      <div style="font-size:8.5px;color:#bbb">AGF Messenchymal Argentina · 2026</div>
+    </div>`;
+  setTimeout(()=>window.print(),200);
+}
+
+// NAVEGACIÓN
+function cerrar(){ document.getElementById("overlay").className="modal-overlay"; document.getElementById("btn-confirmar").disabled=false; }
+function nuevaVenta(){
+  vNum++;
+  localStorage.setItem("agf_vnum", vNum);
+  cajas=[]; cajaId=0; condFiscal="";
+  document.getElementById("vnlbl").textContent="Ventas congreso · Venta #"+vNum;
+  document.getElementById("vnum-badge").textContent="Venta #"+vNum;
+  ["nombre","apellido","cuit","mail","tel","localidad","razon-social","cuit-facturacion"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  document.getElementById("desc-global").value="0";
+  document.getElementById("mismos-datos").checked=true;
+  document.getElementById("datos-facturacion-extra").style.display="none";
+  document.querySelectorAll(".metodo-btn,.cond-btn").forEach(b=>b.classList.remove("on"));
+  moneda="ARS"; metodo="";
+  document.getElementById("tc-row").style.display="flex";
+  document.getElementById("moneda-toggle").style.display="none";
+  document.getElementById("moneda-label").textContent="Cobrando en AR$ · Efectivo y Transferencia pueden usar U$D";
+  document.querySelectorAll(".moneda-btn").forEach(b=>b.classList.remove("on"));
+  document.querySelector('.moneda-btn[data-moneda="ARS"]').classList.add("on");
+  agregarCaja(); cerrar();
+}
+</script>
+</body>
+</html>
