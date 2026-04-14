@@ -1,0 +1,20 @@
+{
+  "name": "AGF Messenchymal — Ventas Congreso",
+  "short_name": "AGF Ventas",
+  "description": "Sistema de ventas BAAS 2026 — AGF Messenchymal Argentina",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f3",
+  "theme_color": "#1D9E75",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
