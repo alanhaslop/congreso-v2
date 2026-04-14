@@ -156,6 +156,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 /* warn state for modal rows */
 .srow.warn{border-color:#e67e22;background:#fef9f0}
 .sdot-warn{background:#e67e22}
+/* TOAST */
+#toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(120%);background:#1a1a1a;color:#fff;padding:10px 22px;border-radius:20px;font-size:13px;font-weight:500;z-index:200;transition:transform .28s cubic-bezier(.4,0,.2,1);white-space:nowrap;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.22)}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.ok{background:#0F6E56}
+#toast.warn{background:#e67e22}
+#toast.err{background:#c0392b}
+.field-err{font-size:11px;color:#c0392b;margin-top:2px;display:none}
+.field-err.show{display:block}
 /* DEVICE SELECTOR */
 .device-sel{display:flex;gap:10px;margin-bottom:10px}
 .device-btn{flex:1;padding:14px 8px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;background:#fafaf9;color:var(--text);text-align:center;transition:all .12s;line-height:1.7}
@@ -188,6 +196,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600">Resetear contadores de venta</div>
         <input type="password" id="admin-pwd" placeholder="Contraseña" onkeydown="if(event.key==='Enter')resetContadores()">
         <button class="btn-reset" onclick="resetContadores()">Resetear A = 1 · B = 1001</button>
+        <button class="btn-reset" style="background:#1D9E75;margin-top:6px" onclick="exportarCola()">Exportar cola pendiente (JSON)</button>
         <div class="login-err" id="admin-err"></div>
       </div>
     </div>
@@ -225,7 +234,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     <div class="g2">
       <div class="field"><label>Nombre</label><input id="nombre" placeholder="Ana" autocomplete="given-name"></div>
       <div class="field"><label>Apellido</label><input id="apellido" placeholder="García" autocomplete="family-name"></div>
-      <div class="field"><label>CUIT / CUIL</label><input id="cuit" placeholder="20-12345678-0" maxlength="13" autocomplete="off" inputmode="numeric"></div>
+      <div class="field"><label>CUIT / CUIL</label><input id="cuit" placeholder="20-12345678-0" maxlength="13" autocomplete="off" inputmode="numeric" oninput="autoformatCuit(this)"><span class="field-err" id="cuit-err">CUIT/CUIL inválido</span></div>
       <div class="field"><label>Teléfono</label><input id="tel" type="text" placeholder="+54 11 1234-5678" autocomplete="off" inputmode="tel"></div>
       <div class="field span2"><label>Email</label><input id="mail" type="email" placeholder="ana@mail.com" autocomplete="email"></div>
       <div class="field span2"><label>Localidad</label><input id="localidad" placeholder="Ciudad, Provincia" autocomplete="off"></div>
@@ -259,6 +268,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
       <input type="number" id="tc-input" value="1300" min="1" oninput="calcResumen()">
       <span style="font-size:13px;color:var(--text-muted)">AR$/U$D</span>
     </div>
+    <div id="tc-label-info" style="font-size:11px;color:var(--text-muted);margin-top:3px;min-height:14px"></div>
     <div id="moneda-label" style="margin-top:.5rem;font-size:12px;color:var(--text-muted)">Cobrando en AR$ · Efectivo y Transferencia pueden usar U$D</div>
   </div>
 
@@ -279,7 +289,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     <div id="datos-facturacion-extra" style="display:none">
       <div class="g2">
         <div class="field span2"><label>Razón social</label><input id="razon-social" placeholder="Empresa S.A." autocomplete="off"></div>
-        <div class="field span2"><label>CUIT de facturación</label><input id="cuit-facturacion" placeholder="30-12345678-0" maxlength="13" autocomplete="off" inputmode="numeric"></div>
+        <div class="field span2"><label>CUIT de facturación</label><input id="cuit-facturacion" placeholder="30-12345678-0" maxlength="13" autocomplete="off" inputmode="numeric" oninput="autoformatCuit(this)"><span class="field-err" id="cuit-facturacion-err">CUIT/CUIL inválido</span></div>
       </div>
     </div>
   </div>
@@ -563,25 +573,28 @@ function buildPayload(){
   const facturacion=getDatosFacturacion();
   const descGlobal=parseFloat(document.getElementById("desc-global").value)||0;
   const tc=parseFloat(document.getElementById("tc-input")?.value)||1300;
-  let totalUSD=0;
+  let subtotalUSD=0, totalUSD=0;
   const lineas=cajas.map((caja,i)=>{
     const precioBase=caja.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
     const precioDesc=precioConDesc(precioBase,caja.descPct);
     const precioFinal=Math.round(precioDesc*(1-descGlobal/100));
-    totalUSD+=precioFinal;
+    subtotalUSD+=precioDesc; totalUSD+=precioFinal;
     return{caja:i+1,tipo:caja.tipo,detalle:caja.tipo==="cerrada"?caja.producto:caja.slots.join(", "),descCaja:caja.descPct,precio:precioFinal};
   });
   const totalARS=moneda==="ARS"?Math.round(totalUSD*tc):null;
-  return{ventaNum:vNum,fecha:new Date().toLocaleString("es-AR"),cliente:c,facturacion,condFiscal,cajas:lineas,totalUSD,totalARS,moneda,tipoCambio:moneda==="ARS"?tc:null,metodoCobro:metodo,descuentoGlobal:descGlobal};
+  return{ventaNum:vNum,dispositivo:deviceId,fecha:new Date().toLocaleString("es-AR"),cliente:c,facturacion,condFiscal,cajas:lineas,subtotalUSD,totalUSD,totalARS,moneda,tipoCambio:moneda==="ARS"?tc:null,metodoCobro:metodo,descuentoGlobal:descGlobal};
 }
 
 // CONFIRMAR — offline-first: siempre guarda en IndexedDB primero, luego sincroniza en background
 async function confirmar(){
   const c=getCliente();
-  if(!c.nombre||!c.apellido||!c.cuit){alert("Completá nombre, apellido y CUIT.");return;}
-  if(cajas.length===0){alert("Agregá al menos una caja.");return;}
-  if(cajas.find(x=>x.tipo==="combinada"&&x.slots.length<5)){alert("Completá los 5 productos de cada caja combinada.");return;}
-  if(!metodo){alert("Seleccioná un método de cobro.");return;}
+  if(!c.nombre||!c.apellido||!c.cuit){showToast("Completá nombre, apellido y CUIT","err");return;}
+  if(!validarCuit(c.cuit)){document.getElementById("cuit-err").classList.add("show");document.getElementById("cuit").scrollIntoView({behavior:"smooth",block:"center"});showToast("CUIT/CUIL inválido","err");return;}
+  document.getElementById("cuit-err").classList.remove("show");
+  if(cajas.length===0){showToast("Agregá al menos una caja","err");return;}
+  if(cajas.find(x=>x.tipo==="combinada"&&x.slots.length<5)){showToast("Completá los 5 productos de cada caja combinada","err");return;}
+  if(!metodo){showToast("Seleccioná un método de cobro","err");return;}
+  if(!condFiscal){showToast("Seleccioná la condición fiscal","err");return;}
   const _p=buildPayload();
   // 1. Guardar en IndexedDB de forma inmediata
   await saveToQueue(_p);
@@ -602,6 +615,46 @@ function setRow(id,est,sub){
   document.getElementById("sub-"+id).textContent=sub;
 }
 
+// TOAST
+let _toastTimer;
+function showToast(msg,type){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+(type||'ok');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>{t.className='toast';},3000);
+}
+
+// CUIT — autoformato XX-XXXXXXXX-X + validación dígito verificador
+function autoformatCuit(input){
+  let v=input.value.replace(/\D/g,'').slice(0,11);
+  if(v.length>2) v=v.slice(0,2)+'-'+v.slice(2);
+  if(v.length>11) v=v.slice(0,11)+'-'+v.slice(11);
+  input.value=v;
+  const err=document.getElementById(input.id+'-err');
+  if(err){const digits=v.replace(/\D/g,'');err.classList.toggle('show',digits.length===11&&!validarCuit(v));}
+}
+function validarCuit(cuit){
+  const d=cuit.replace(/\D/g,'');
+  if(d.length!==11)return false;
+  const m=[5,4,3,2,7,6,5,4,3,2];
+  const s=d.slice(0,10).split('').reduce((a,c,i)=>a+parseInt(c)*m[i],0);
+  const v=11-(s%11); const check=v===11?0:v;
+  return check!==10&&parseInt(d[10])===check;
+}
+
+// EXPORTAR COLA PENDIENTE
+async function exportarCola(){
+  const pending=await getAllPending();
+  if(!pending.length){showToast('No hay ventas en cola','warn');return;}
+  const json=JSON.stringify(pending.map(p=>p.payload),null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='agf_cola_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); URL.revokeObjectURL(url);
+  showToast(pending.length+' venta'+(pending.length>1?'s':'')+' exportada'+(pending.length>1?'s':''));
+}
+
 // RECIBO
 function imprimirRecibo(){
   const c=getCliente(); const p=buildPayload();
@@ -612,7 +665,7 @@ function imprimirRecibo(){
     const bg=l.caja%2===1?"background:#f8f8f6":"";
     return`<tr style="${bg}"><td style="padding:7px 4px">${l.tipo==="cerrada"?`Caja ${l.caja} — Cerrada`:`Caja ${l.caja} — Combinada`}</td><td style="padding:7px 4px;color:#555;text-align:center;font-size:12px">${l.detalle}</td><td style="padding:7px 4px;text-align:right">${display}</td></tr>`;
   });
-  if(p.descuentoGlobal>0) filas.push(`<tr style="border-top:1px solid #e8e8e0"><td colspan="2" style="padding:5px 4px;color:#999;font-size:11px;font-style:italic">Descuento global: ${p.descuentoGlobal}%</td><td style="padding:5px 4px;text-align:right;color:#b03a2e;font-size:11px">−u$${Math.round(p.totalUSD*p.descuentoGlobal/100).toLocaleString("es-AR")}${p.totalARS?`<br><span style="font-size:10px">AR$−${Math.round(p.totalARS*p.descuentoGlobal/100).toLocaleString("es-AR")}</span>`:""}</td></tr>`);
+  if(p.descuentoGlobal>0){const discUSD=p.subtotalUSD-p.totalUSD;const discARS=p.totalARS?Math.round(discUSD*tc):null;filas.push(`<tr style="border-top:1px solid #e8e8e0"><td colspan="2" style="padding:5px 4px;color:#999;font-size:11px;font-style:italic">Descuento global: ${p.descuentoGlobal}%</td><td style="padding:5px 4px;text-align:right;color:#b03a2e;font-size:11px">−u$${discUSD.toLocaleString("es-AR")}${discARS?`<br><span style="font-size:10px">AR$−${discARS.toLocaleString("es-AR")}</span>`:""}</td></tr>`);}
   const totalDisplay=moneda==="USD"?`u$${p.totalUSD.toLocaleString("es-AR")}`:`<div style="margin-bottom:4px">u$${p.totalUSD.toLocaleString("es-AR")}</div><div style="font-size:18px">AR$${p.totalARS.toLocaleString("es-AR")}</div>`;
   const facRowRecibo=p.condFiscal?`<tr><td style="padding:3px 0;color:#999">Cond. fiscal</td><td colspan="4" style="padding:3px 0">${p.condFiscal}${!p.facturacion.mismosContacto?` — ${p.facturacion.razonSocial} (${p.facturacion.cuitFacturacion})`:""}  </td></tr>`:"";
   document.getElementById("recibo-print").innerHTML=`
@@ -665,6 +718,7 @@ function nuevaVenta(){
   vNum++;
   localStorage.setItem("agf_vnum_"+deviceId, vNum);
   cajas=[]; cajaId=0; condFiscal="";
+  document.getElementById("cuit-err").classList.remove("show");
   document.getElementById("vnlbl").textContent="Dispositivo "+deviceId+" · Venta #"+vNum;
   document.getElementById("vnum-badge").textContent="Venta #"+vNum;
   ["nombre","apellido","cuit","mail","tel","localidad","razon-social","cuit-facturacion"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
@@ -738,7 +792,7 @@ async function updateConnBadge(){
   const count=await getPendingCount();
   const online=navigator.onLine;
   const good=online&&count===0;
-  badge.className=good?'online':'offline';
+  badge.className='conn-badge '+(good?'online':'offline');
   dot.className='cbdot '+(good?'online':'offline');
   if(good){txt.textContent='En línea';}
   else if(!online&&count===0){txt.textContent='Sin red';}
@@ -746,18 +800,30 @@ async function updateConnBadge(){
   else{txt.textContent='Sin red · '+count+' pendiente'+(count>1?'s':'');}
 }
 
+let syncRunning=false;
 async function syncQueue(){
-  const pending=await getAllPending();
-  if(!pending.length){updateConnBadge();return;}
-  let synced=0;
-  for(const item of pending){
-    try{
-      await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(item.payload)});
-      await deleteFromQueue(item.id);
-      synced++;
-    }catch(e){break;}
-  }
-  updateConnBadge();
+  if(syncRunning)return;
+  syncRunning=true;
+  try{
+    const pending=await getAllPending();
+    if(!pending.length){updateConnBadge();return;}
+    let synced=0, allOk=true;
+    for(const item of pending){
+      try{
+        await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(item.payload)});
+        await deleteFromQueue(item.id);
+        synced++;
+      }catch(e){allOk=false;break;}
+    }
+    updateConnBadge();
+    const overlay=document.getElementById('overlay');
+    if(overlay&&overlay.classList.contains('show')){
+      if(allOk){setRow('sheet','ok','Guardado en Google Sheets ✓');setRow('mail','ok','Email enviado al cliente ✓');}
+      else{setRow('sheet','warn','Sin red — reintentará al reconectar');setRow('mail','warn','Se enviará al reconectar');}
+    }else if(synced>0){
+      showToast(synced===1?'Venta sincronizada ✓':synced+' ventas sincronizadas ✓');
+    }
+  }finally{syncRunning=false;}
 }
 
 window.addEventListener('online',()=>{
@@ -769,6 +835,22 @@ window.addEventListener('online',()=>{
 });
 window.addEventListener('offline',()=>updateConnBadge());
 
+// Recibir confirmación de sync completado desde el Service Worker (bgSync)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message',e=>{
+    if(e.data&&e.data.type==='SYNC_DONE'&&e.data.synced>0){
+      updateConnBadge();
+      const overlay=document.getElementById('overlay');
+      if(overlay&&overlay.classList.contains('show')){
+        setRow('sheet','ok','Guardado en Google Sheets ✓');
+        setRow('mail','ok','Email enviado al cliente ✓');
+      }else{
+        showToast(e.data.synced===1?'Venta sincronizada ✓':e.data.synced+' ventas sincronizadas ✓');
+      }
+    }
+  });
+}
+
 // Service Worker
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
@@ -779,5 +861,6 @@ if('serviceWorker' in navigator){
 // Init badge
 window.addEventListener('load',()=>updateConnBadge());
 </script>
+<div id="toast"></div>
 </body>
 </html>

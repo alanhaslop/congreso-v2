@@ -1,4 +1,4 @@
-const CACHE = 'agf-v1';
+const CACHE = 'agf-v3';
 const BASE = self.location.pathname.replace(/sw\.js$/, '');
 const ASSETS = [
   BASE,
@@ -6,7 +6,7 @@ const ASSETS = [
   BASE + 'manifest.json',
   BASE + 'icon.svg'
 ];
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAEQAkX973fbps_xkvwKtoYhgoHjMMxZpRRpUd0VaxA-U2OFmehVubmnmhB72flds3/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzi9aawyYOksTthOJ5HQMgSE8ULX06R-ZmcTdBzH03BauaxT5az7gKL_cw9eULjL5Cx/exec";
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -24,7 +24,6 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // Pass cross-origin requests through (Apps Script, dolar API, etc.)
   if (url.origin !== location.origin) return;
   e.respondWith(
     caches.match(e.request).then(cached => {
@@ -46,14 +45,26 @@ self.addEventListener('sync', e => {
 async function bgSync() {
   const db = await idbOpen();
   const all = await idbGetAll(db);
+  let synced = 0;
   for (const item of all) {
-    await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(item.payload)
-    });
-    await idbDelete(db, item.id);
+    try {
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item.payload)
+      });
+      await idbDelete(db, item.id);
+      synced++;
+    } catch(e) {
+      // Continuar con el siguiente; este se reintentará en el próximo sync
+      console.warn('[SW] bgSync item failed, will retry:', item.id, e);
+    }
+  }
+  if (synced > 0) {
+    self.clients.matchAll().then(clients =>
+      clients.forEach(c => c.postMessage({ type: 'SYNC_DONE', synced }))
+    );
   }
 }
 
