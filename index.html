@@ -627,10 +627,10 @@ function imprimirRecibo(){
 
   // Tarjetas de productos (solo los que tienen unidades)
   const prodCards=Object.entries(unidades).filter(([,u])=>u>0).map(([prod,u])=>`
-    <div style="flex:1;text-align:center;padding:2px 4px 6px">
+    <div style="width:160px;text-align:center;padding:2px 8px 6px">
       <img src="${logoMap[prod]}" alt="${prod}" style="height:40px;width:100%;object-fit:contain;object-position:bottom;display:block;margin:0 auto">
-      <div style="font-family:Georgia,serif;font-size:26px;font-weight:600;color:#1B3A52;line-height:1;margin-top:3px">${u}</div>
-      <div style="font-size:7px;color:#bbb;letter-spacing:.1em;text-transform:uppercase">unidades</div>
+      <div style="font-family:Georgia,serif;font-size:26px;font-weight:600;color:#1B3A52;line-height:1.2;display:block;margin-top:4px">${u}</div>
+      <div style="font-size:7px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:2px">unidades</div>
     </div>`).join("");
 
   // Filas de cajas con descuento por caja
@@ -707,7 +707,7 @@ function imprimirRecibo(){
 
       <!-- PRODUCTOS -->
       <div style="font-size:8px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#1B3A52;border-bottom:1px solid #d8d4cc;padding-bottom:4px;margin-bottom:10px;margin-top:16px">Productos adquiridos</div>
-      <div style="display:flex;gap:0;margin-bottom:4px">${prodCards}</div>
+      <div style="display:flex;gap:0;justify-content:center;flex-wrap:wrap;margin-bottom:4px">${prodCards}</div>
 
       <!-- DETALLE CAJAS -->
       <div style="font-size:8px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#1B3A52;border-bottom:1px solid #d8d4cc;padding-bottom:4px;margin-bottom:0;margin-top:16px">Detalle de cajas</div>
