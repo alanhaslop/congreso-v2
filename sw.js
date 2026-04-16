@@ -6,11 +6,15 @@ const ASSETS = [
   BASE + 'manifest.json',
   BASE + 'icon.svg'
 ];
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAEQAkX973fbps_xkvwKtoYhgoHjMMxZpRRpUd0VaxA-U2OFmehVubmnmhB72flds3/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzi9aawyYOksTthOJ5HQMgSE8ULX06R-ZmcTdBzH03BauaxT5az7gKL_cw9eULjL5Cx/exec";
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
-  self.skipWaiting();
+  e.waitUntil(
+    Promise.all([
+      caches.open(CACHE).then(c => c.addAll(ASSETS)),
+      self.skipWaiting()
+    ])
+  );
 });
 
 self.addEventListener('activate', e => {
