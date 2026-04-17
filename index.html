@@ -672,11 +672,13 @@ function imprimirRecibo(){
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&display=swap');
     @media print{
+      @page{margin:12mm 14mm}
       #recibo-print{padding:0!important}
-      .page-recibo{box-shadow:none!important}
+      .page-recibo{box-shadow:none!important;overflow:visible!important;max-width:100%!important}
+      tr{break-inside:avoid}
     }
   </style>
-  <div class="page-recibo" style="max-width:720px;margin:0 auto;background:#fff;font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;position:relative;overflow:hidden">
+  <div class="page-recibo" style="max-width:720px;margin:0 auto;background:#fff;font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;position:relative;overflow:visible">
 
     <!-- MARCA DE AGUA -->
     <img src="${LOGO_BAAS}" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:480px;opacity:0.05;pointer-events:none;z-index:0" alt="">
@@ -706,7 +708,6 @@ function imprimirRecibo(){
         <div style="display:flex;gap:8px;padding:2px 0"><span style="color:#bbb;min-width:80px;font-size:10px">Email</span><span style="font-weight:500;font-size:11px">${c.mail||"—"}</span></div>
         <div style="display:flex;gap:8px;padding:2px 0"><span style="color:#bbb;min-width:80px;font-size:10px">Teléfono</span><span style="font-weight:500;font-size:11px">${c.tel||"—"}</span></div>
         <div style="display:flex;gap:8px;padding:2px 0"><span style="color:#bbb;min-width:80px;font-size:10px">Localidad</span><span style="font-weight:500;font-size:11px">${c.localidad||"—"}</span></div>
-        ${p.condFiscal?`<div style="display:flex;gap:8px;padding:2px 0"><span style="color:#bbb;min-width:80px;font-size:10px">Cond. fiscal</span><span style="font-weight:500;font-size:11px">${p.condFiscal}</span></div>`:""}
       </div>
 
       <!-- PRODUCTOS -->
@@ -765,7 +766,7 @@ function imprimirRecibo(){
     </div>
 
   </div>`;
-  setTimeout(()=>window.print(),200);
+  setTimeout(()=>window.print(),600);
 }
 
 // NAVEGACIÓN
