@@ -859,13 +859,23 @@ async function updateConnBadge(){
 async function syncQueue(){
   const pending=await getAllPending();
   if(!pending.length){updateConnBadge();return;}
-  let synced=0;
   for(const item of pending){
     try{
-      await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(item.payload)});
-      await deleteFromQueue(item.id);
-      synced++;
-    }catch(e){break;}
+      const resp=await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'cors',body:JSON.stringify(item.payload)});
+      const result=await resp.json().catch(()=>({ok:true}));
+      if(result.ok!==false){
+        await deleteFromQueue(item.id);
+        const mail=item.payload.cliente&&item.payload.cliente.mail;
+        setRow("sheet","ok","Guardado en Sheets ✓");
+        setRow("mail","ok",mail?"Enviado a "+mail:"Enviado ✓");
+      }else{
+        setRow("sheet","err","Error Apps Script: "+(result.error||"desconocido"));
+        setRow("mail","err","No enviado");
+      }
+    }catch(e){
+      setRow("sheet","err","Error de red: "+e.message);
+      break;
+    }
   }
   updateConnBadge();
 }
