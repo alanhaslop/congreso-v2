@@ -881,6 +881,8 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('./sw.js').catch(err=>console.warn('SW:',err));
   });
+  // Auto-reload when a new SW takes over so the page always runs fresh code
+  navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
 }
 
 // Init badge
