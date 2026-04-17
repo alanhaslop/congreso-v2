@@ -463,10 +463,14 @@ function renderCajas(){
         </div>
         ${cajas.length>1?`<button class="btn-del-caja" onclick="eliminarCaja(${c.id})">×</button>`:""}
       </div>`;
-    const precioFinal=precioConDesc(c.tipo==="cerrada"?P_CERRADA:P_COMBINADA,c.descPct);
+    const descGlobal=parseFloat(document.getElementById("desc-global").value)||0;
+    const precioBase=c.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
+    const precioDesc=precioConDesc(precioBase,c.descPct);
+    const precioFinal=Math.round(precioDesc*(1-descGlobal/100));
+    const tachado=c.descPct>0?`<span style="text-decoration:line-through;color:#bbb;font-size:10px;margin-right:4px">u$${precioBase.toLocaleString("es-AR")}</span>`:"";
     const precioDisplay=moneda==="USD"
-      ?`u$${precioFinal.toLocaleString("es-AR")}`
-      :`u$${precioFinal.toLocaleString("es-AR")}<br><span style="font-size:11px;color:#666">AR$${(precioFinal*tc).toLocaleString("es-AR")}</span>`;
+      ?`${tachado}u$${precioFinal.toLocaleString("es-AR")}`
+      :`${tachado}u$${precioFinal.toLocaleString("es-AR")}<br><span style="font-size:11px;color:#666">AR$${(precioFinal*tc).toLocaleString("es-AR")}</span>`;
     if(c.tipo==="cerrada"){
       inner+=`<div class="prod-select-row">
         <select onchange="cambiarProducto(${c.id},this.value)">
@@ -530,19 +534,20 @@ function selMoneda(m,el){
 function calcResumen(){
   const descGlobal=parseFloat(document.getElementById("desc-global").value)||0;
   const tc=parseFloat(document.getElementById("tc-input")?.value)||1300;
-  let totalUSD=0;
+  let subtotalUSD=0, totalUSD=0;
   const linesHTML=cajas.map((c,i)=>{
     const precioBase=c.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
     const precioDesc=precioConDesc(precioBase,c.descPct);
     const precioFinal=Math.round(precioDesc*(1-descGlobal/100));
-    totalUSD+=precioFinal;
+    subtotalUSD+=precioDesc; totalUSD+=precioFinal;
     const desc=c.tipo==="cerrada"?c.producto:`Combinada (${c.slots.join(", ")||"sin completar"})`;
     const display=moneda==="USD"
       ?`u$${precioFinal.toLocaleString("es-AR")}`
       :`u$${precioFinal.toLocaleString("es-AR")} <span style="font-size:12px;color:#888">/ AR$${(precioFinal*tc).toLocaleString("es-AR")}</span>`;
     return`<div class="resumen-row"><span>Caja ${i+1} — ${desc}</span><span>${display}</span></div>`;
   }).join("");
-  document.getElementById("resumen-lineas").innerHTML=linesHTML;
+  const descLine=descGlobal>0?`<div class="resumen-row" style="color:#e67e22;font-size:12px"><span>Desc. general ${descGlobal}%</span><span>− u$${(subtotalUSD-totalUSD).toLocaleString("es-AR")}</span></div>`:"";
+  document.getElementById("resumen-lineas").innerHTML=linesHTML+descLine;
   document.getElementById("total-usd").textContent=`u$${totalUSD.toLocaleString("es-AR")}`;
   document.getElementById("total-ars").textContent=moneda==="ARS"?`= AR$${(totalUSD*tc).toLocaleString("es-AR")}` :"";
 }
@@ -582,6 +587,7 @@ async function confirmar(){
   if(cajas.length===0){alert("Agregá al menos una caja.");return;}
   if(cajas.find(x=>x.tipo==="combinada"&&x.slots.length<5)){alert("Completá los 5 productos de cada caja combinada.");return;}
   if(!metodo){alert("Seleccioná un método de cobro.");return;}
+  if(!condFiscal&&!confirm("No seleccionaste condición fiscal. ¿Confirmar la venta igual?"))return;
   const _p=buildPayload();
   // 1. Guardar en IndexedDB de forma inmediata
   await saveToQueue(_p);
@@ -635,27 +641,42 @@ function imprimirRecibo(){
 
   // Filas de cajas con descuento por caja
   const filasCajas=p.cajas.map((l,i)=>{
-    const bg=i%2===0?"#f8f8f6":"#ffffff";
     const tipo=l.tipo==="cerrada"?"Cerrada":"Combinada";
     const tagBg=l.tipo==="cerrada"?"#EEF4F8":"#f0faf6";
-    const descBadge=l.descCaja>0?` <span style="color:#e67e22;font-size:10px;font-style:italic">— desc. ${l.descCaja}%</span>`:"";
-    const precioUSD=`u$${l.precio.toLocaleString("es-AR")}`;
-    return`<tr style="background:${bg};border-bottom:1px solid #f5f2ec">
+    const precioOrigBase=l.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
+    const tachado=l.descCaja>0?`<span style="text-decoration:line-through;color:#ccc;font-size:9px;margin-right:3px">u$${precioOrigBase.toLocaleString("es-AR")}</span>`:"";
+    const precioUSD=`${tachado}u$${l.precio.toLocaleString("es-AR")}`;
+    return`<tr style="background:transparent;border-bottom:1px solid #f5f2ec">
       <td style="padding:6px 8px"><span style="display:inline-block;background:${tagBg};color:#1B3A52;font-size:9px;padding:2px 7px;border-radius:2px;font-weight:500">${tipo}</span></td>
-      <td style="padding:6px 8px;color:#777;font-size:10.5px">${l.detalle}${descBadge}</td>
+      <td style="padding:6px 8px;color:#777;font-size:10.5px">${l.detalle}</td>
       <td style="padding:6px 8px;text-align:right;font-weight:600;color:#1B3A52;font-size:11px">${precioUSD}</td>
     </tr>`;
   }).join("");
 
   // Fila descuento global
+  const subtotalUSD=p.cajas.reduce((acc,l)=>acc+precioConDesc(l.tipo==="cerrada"?P_CERRADA:P_COMBINADA,l.descCaja),0);
+  const ahorroUSD=p.descuentoGlobal>0&&p.descuentoGlobal<100?subtotalUSD-p.totalUSD:0;
   const descGlobalRow=p.descuentoGlobal>0?`
     <div style="display:flex;gap:12px;padding:2px 0">
-      <span style="color:#bbb;min-width:110px;font-size:10px">Descuento general</span>
-      <span style="color:#e67e22;font-weight:600;font-size:11px">${p.descuentoGlobal}%${p.totalUSD?` — u$${Math.round(p.totalUSD*p.descuentoGlobal/(100-p.descuentoGlobal)).toLocaleString("es-AR")} de ahorro`:""}  </span>
+      <span style="color:#bbb;min-width:110px;font-size:10px">Subtotal</span>
+      <span style="color:#888;font-size:11px">u$${subtotalUSD.toLocaleString("es-AR")}</span>
+    </div>
+    <div style="display:flex;gap:12px;padding:2px 0">
+      <span style="color:#bbb;min-width:110px;font-size:10px">Desc. general ${p.descuentoGlobal}%</span>
+      <span style="color:#e67e22;font-weight:600;font-size:11px">${ahorroUSD>0?`− u$${ahorroUSD.toLocaleString("es-AR")}`:""}</span>
     </div>`:"";
 
   // Total
   const totalUSDStr=`u$${p.totalUSD.toLocaleString("es-AR")}`;
+  const facturacionBlock=(()=>{
+    const cf=p.condFiscal;
+    if(!cf)return"";
+    let bg="#fee2e2",color="#dc2626",titulo="Sin factura",msg="Esta venta no incluye factura.";
+    if(cf==="Resp. Inscripto"){bg="#dbeafe";color="#1d4ed8";titulo="Factura A";msg="Se emitirá Factura A a nombre del Responsable Inscripto indicado.";}
+    else if(cf==="Monotributista"){bg="#dcfce7";color="#16a34a";titulo="Factura B";msg="Se emitirá Factura B con los datos del comprador.";}
+    else if(cf==="Cons. Final"){bg="#dcfce7";color="#16a34a";titulo="Factura B";msg="Se emitirá Factura B — Consumidor Final.";}
+    return`<div style="margin-top:14px;padding:9px 12px;background:${bg};border-left:4px solid ${color};border-radius:3px"><div style="font-weight:600;font-size:10px;color:${color};margin-bottom:2px">${titulo}</div><div style="font-size:10px;color:#444">${msg}</div></div>`;
+  })();
   const totalARSStr=p.totalARS?`<div style="font-size:11px;color:#aaa;margin-top:3px">AR$ ${p.totalARS.toLocaleString("es-AR")}</div>`:"";
 
   // TC row
@@ -735,6 +756,8 @@ function imprimirRecibo(){
           ${totalARSStr}
         </div>
       </div>
+
+      ${facturacionBlock}
 
       <!-- FIRMAS -->
       <div style="display:flex;gap:20px;margin-top:32px">
