@@ -54,7 +54,6 @@ async function bgSync() {
     await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(item.payload)
     });
     await idbDelete(db, item.id);
