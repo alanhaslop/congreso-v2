@@ -225,7 +225,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     <div class="g2">
       <div class="field"><label>Nombre</label><input id="nombre" placeholder="Ana" autocomplete="given-name"></div>
       <div class="field"><label>Apellido</label><input id="apellido" placeholder="García" autocomplete="family-name"></div>
-      <div class="field"><label>CUIT / CUIL</label><input id="cuit" placeholder="20-12345678-0" maxlength="13" autocomplete="off" inputmode="numeric"></div>
+      <div class="field"><label>CUIT / CUIL</label><input id="cuit" placeholder="20-12345678-0" maxlength="13" autocomplete="off" inputmode="numeric" oninput="formatCuit(this)"></div>
       <div class="field"><label>Teléfono</label><input id="tel" type="text" placeholder="+54 11 1234-5678" autocomplete="off" inputmode="tel"></div>
       <div class="field span2"><label>Email</label><input id="mail" type="email" placeholder="ana@mail.com" autocomplete="email"></div>
       <div class="field span2"><label>Localidad</label><input id="localidad" placeholder="Ciudad, Provincia" autocomplete="off"></div>
@@ -279,7 +279,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     <div id="datos-facturacion-extra" style="display:none">
       <div class="g2">
         <div class="field span2"><label>Razón social</label><input id="razon-social" placeholder="Empresa S.A." autocomplete="off"></div>
-        <div class="field span2"><label>CUIT de facturación</label><input id="cuit-facturacion" placeholder="30-12345678-0" maxlength="13" autocomplete="off" inputmode="numeric"></div>
+        <div class="field span2"><label>CUIT de facturación</label><input id="cuit-facturacion" placeholder="30-12345678-0" maxlength="13" autocomplete="off" inputmode="numeric" oninput="formatCuit(this)"></div>
       </div>
     </div>
   </div>
@@ -325,7 +325,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
       <button class="print-btn" onclick="imprimirRecibo()">Imprimir recibo para la administrativa</button>
     </div>
     <div class="mfooter">
-      <button onclick="cerrar()">Volver</button>
       <button class="pri" onclick="nuevaVenta()">Nueva venta</button>
     </div>
   </div>
@@ -553,6 +552,15 @@ function calcResumen(){
 }
 
 // CLIENTE / PAYLOAD
+function formatCuit(el){
+  let digits=el.value.replace(/\D/g,"").slice(0,11);
+  let out="";
+  if(digits.length<=2){out=digits;}
+  else if(digits.length<=10){out=digits.slice(0,2)+"-"+digits.slice(2);}
+  else{out=digits.slice(0,2)+"-"+digits.slice(2,10)+"-"+digits.slice(10);}
+  el.value=out;
+}
+
 function getCliente(){
   return{
     nombre:    document.getElementById("nombre").value.trim(),
@@ -668,15 +676,25 @@ function imprimirRecibo(){
 
   // Total
   const totalUSDStr=`u$${p.totalUSD.toLocaleString("es-AR")}`;
-  const facturacionBlock=(()=>{
-    const cf=p.condFiscal;
-    if(!cf)return"";
-    let bg="#fee2e2",color="#dc2626",titulo="Sin factura",msg="Esta venta no incluye factura.";
-    if(cf==="Resp. Inscripto"){bg="#dbeafe";color="#1d4ed8";titulo="Factura A";msg="Se emitirá Factura A a nombre del Responsable Inscripto indicado.";}
-    else if(cf==="Monotributista"){bg="#dcfce7";color="#16a34a";titulo="Factura B";msg="Se emitirá Factura B con los datos del comprador.";}
-    else if(cf==="Cons. Final"){bg="#dcfce7";color="#16a34a";titulo="Factura B";msg="Se emitirá Factura B — Consumidor Final.";}
-    return`<div style="margin-top:14px;padding:9px 12px;background:${bg};border-left:4px solid ${color};border-radius:3px"><div style="font-weight:600;font-size:10px;color:${color};margin-bottom:2px">${titulo}</div><div style="font-size:10px;color:#444">${msg}</div></div>`;
-  })();
+  const _instrMap={
+    "Resp. Inscripto":{bg:"#eff6ff",border:"#93c5fd",color:"#1e3a8a",icono:"▲",texto:"Se emitirá Factura A. Verificar CUIT y razón social con administración antes de procesar."},
+    "Monotributista": {bg:"#f0fdf4",border:"#86efac",color:"#14532d",icono:"●",texto:"Se emitirá Factura B. Datos registrados para procesamiento posterior por administración."},
+    "Cons. Final":    {bg:"#f0fdf4",border:"#86efac",color:"#14532d",icono:"●",texto:"Se emitirá Factura B (Consumidor Final). Sin CUIT específico requerido."}
+  };
+  const _instrData=p.condFiscal&&_instrMap[p.condFiscal]?_instrMap[p.condFiscal]:null;
+  const _facRazon=p.facturacion&&p.facturacion.razonSocial?p.facturacion.razonSocial:"";
+  const _facCuit=p.facturacion&&p.facturacion.cuitFacturacion?p.facturacion.cuitFacturacion:"";
+  const _datosFactRow=(_facRazon||_facCuit)?`
+      <div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(0,0,0,0.1);display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        ${_facRazon?`<div><span style="font-size:8px;opacity:.7">Razón social</span><br><span style="font-size:10.5px;font-weight:600">${_facRazon}</span></div>`:""}
+        ${_facCuit?`<div><span style="font-size:8px;opacity:.7">CUIT</span><br><span style="font-size:10.5px;font-weight:600">${_facCuit}</span></div>`:""}
+      </div>`:"";
+  const facturacionBlock=_instrData?`
+    <div style="margin-top:16px;padding:10px 14px;background:${_instrData.bg};border:1px solid ${_instrData.border};border-radius:6px">
+      <div style="font-size:8px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:${_instrData.color};margin-bottom:4px">${_instrData.icono} Instrucciones de facturación</div>
+      <div style="font-size:10.5px;color:${_instrData.color};line-height:1.5">${_instrData.texto}</div>
+      ${_datosFactRow}
+    </div>`:"";
   const totalARSStr=p.totalARS?`<div style="font-size:11px;color:#aaa;margin-top:3px">AR$ ${p.totalARS.toLocaleString("es-AR")}</div>`:"";
 
   // TC row
