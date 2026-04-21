@@ -488,15 +488,15 @@ function buildReciboHTML(p) {
     +       '<div style="font-size:8px;color:#bbb;margin-bottom:2px">CUIT / CUIL</div>'
     +       '<div style="font-size:12px;font-weight:600">' + (c.cuit || '') + '</div>'
     +     '</td>'
-    +     (c.localidad
-    +       ? '<td><div style="font-size:8px;color:#bbb;margin-bottom:2px">Localidad</div>'
+    +     (c.localidad ?
+    +       '<td><div style="font-size:8px;color:#bbb;margin-bottom:2px">Localidad</div>'
     +         + '<div style="font-size:12px">' + c.localidad + '</div></td>'
     +       : '')
     +   '</tr></table>'
 
     //   CLIENTE — fila email / tel
-    +   ((c.mail || c.tel)
-    +     ? '<table cellpadding="0" cellspacing="0" style="margin-bottom:14px"><tr>'
+    +   ((c.mail || c.tel) ?
+    +     '<table cellpadding="0" cellspacing="0" style="margin-bottom:14px"><tr>'
     +       + (c.mail ? '<td style="padding-right:24px"><div style="font-size:8px;color:#bbb;margin-bottom:2px">Email</div><div style="font-size:11px">' + c.mail + '</div></td>' : '')
     +       + (c.tel  ? '<td><div style="font-size:8px;color:#bbb;margin-bottom:2px">Teléfono</div><div style="font-size:11px">' + c.tel  + '</div></td>' : '')
     +       + '</tr></table>'
