@@ -707,13 +707,13 @@ function testManual() {
     ventaNum: 99,
     fecha: '19/4/2026, 10:00:00',
     dispositivo: 'TEST',
-    cliente: { nombre:'Ana', apellido:'García', cuit:'20-12345678-0', mail:'', tel:'', localidad:'CABA' },
+    cliente: { nombre:'Ana', apellido:'García', cuit:'20-12345678-0', mail:'alan.haslop@dermacells.com.ar', tel:'', localidad:'CABA' },
     facturacion: { razonSocial:'Empresa SA', cuitFacturacion:'30-99999999-0', mismosContacto:false },
     condFiscal: 'Resp. Inscripto',
     cajas: [
-      { caja:1, tipo:'cerrada',   detalle:'Dermal',                                       descCaja:0,  precio:750 },
-      { caja:2, tipo:'combinada', detalle:'Dermal, Capillary, Pink, Biomask, Dermal',     descCaja:10, precio:810 },
-      { caja:3, tipo:'cerrada',   detalle:'Capillary',                                    descCaja:0,  precio:750 }
+      { caja:1, tipo:'cerrada',   detalle:'Dermal',                                   descCaja:0,  precio:750 },
+      { caja:2, tipo:'combinada', detalle:'Dermal, Capillary, Pink, Biomask, Dermal', descCaja:10, precio:810 },
+      { caja:3, tipo:'cerrada',   detalle:'Capillary',                                descCaja:0,  precio:750 }
     ],
     totalUSD: 2310,
     totalARS: null,
@@ -734,5 +734,12 @@ function testManual() {
   guardarVenta(payload, url);
   actualizarResumen(payload);
   obtenerOCrearHoja(SHEET_STOCK, crearHojaStock);
+
+  // Enviar emails con el PDF adjunto (igual que doPost)
+  enviarEmailCliente(payload, blob);
+  Logger.log('Email cliente enviado a: ' + payload.cliente.mail);
+  enviarEmailAdmin(payload, blob);
+  Logger.log('Email admin enviado a: ' + ADMIN_EMAIL);
+
   Logger.log('testManual completado OK');
 }
