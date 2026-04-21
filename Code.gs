@@ -442,6 +442,17 @@ function buildReciboHTML(p) {
       + '</td></tr></table>'
     : '';
 
+  // ── Pre-computados para evitar "? / :" al inicio de línea con "+" (rompe parser Apps Script) ──
+  const localidadCell = c.localidad
+    ? '<td><div style="font-size:8px;color:#bbb;margin-bottom:2px">Localidad</div><div style="font-size:12px">' + c.localidad + '</div></td>'
+    : '';
+  const emailTelTable = (c.mail || c.tel)
+    ? '<table cellpadding="0" cellspacing="0" style="margin-bottom:14px"><tr>'
+      + (c.mail ? '<td style="padding-right:24px"><div style="font-size:8px;color:#bbb;margin-bottom:2px">Email</div><div style="font-size:11px">' + c.mail + '</div></td>' : '')
+      + (c.tel  ? '<td><div style="font-size:8px;color:#bbb;margin-bottom:2px">Teléfono</div><div style="font-size:11px">' + c.tel  + '</div></td>' : '')
+      + '</tr></table>'
+    : '';
+
   // ════ CONSTRUCCIÓN DEL HTML ════
   return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
     + '<style>body{background:#FAF7F2;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#1a1a1a;padding:24px}table{border-collapse:collapse}td,th{vertical-align:top}</style>'
@@ -488,19 +499,11 @@ function buildReciboHTML(p) {
     +       '<div style="font-size:8px;color:#bbb;margin-bottom:2px">CUIT / CUIL</div>'
     +       '<div style="font-size:12px;font-weight:600">' + (c.cuit || '') + '</div>'
     +     '</td>'
-    +     (c.localidad ?
-    +       '<td><div style="font-size:8px;color:#bbb;margin-bottom:2px">Localidad</div>'
-    +         + '<div style="font-size:12px">' + c.localidad + '</div></td>'
-    +       : '')
+    +     localidadCell
     +   '</tr></table>'
 
     //   CLIENTE — fila email / tel
-    +   ((c.mail || c.tel) ?
-    +     '<table cellpadding="0" cellspacing="0" style="margin-bottom:14px"><tr>'
-    +       + (c.mail ? '<td style="padding-right:24px"><div style="font-size:8px;color:#bbb;margin-bottom:2px">Email</div><div style="font-size:11px">' + c.mail + '</div></td>' : '')
-    +       + (c.tel  ? '<td><div style="font-size:8px;color:#bbb;margin-bottom:2px">Teléfono</div><div style="font-size:11px">' + c.tel  + '</div></td>' : '')
-    +       + '</tr></table>'
-    +     : '')
+    +   emailTelTable
 
     //   DETALLE — título sección
     +   '<div style="font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e8e8e0">Detalle</div>'
