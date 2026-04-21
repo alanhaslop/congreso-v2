@@ -254,25 +254,15 @@ function crearHojaStock(sheet) {
   sheet.getRange('A10:I10')
     .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
 
-  // QUERY que agrupa ventas por día desde hoja Ventas
-  // Columnas del array: Col1=fecha, Col2=X(Dermal), Col3=Y(Capil), Col4=Z(Pink), Col5=AA(Biomask), Col6=Q(cajas), Col7=U(USD), Col8=V(ARS), Col9=B(venta#)
+  // QUERY sobre hoja Resumen (ya tiene datos agregados por día, mucho más simple)
+  // Resumen: A=Fecha, B=Método, C=Cajas, D=U$D, E=ARS, F=#Ventas, G=Dermal, H=Capillary, I=Pink, J=Biomask
   sheet.getRange('A11').setFormula(
-    '=IFERROR(QUERY({'
-    + 'TEXT(Ventas!A2:A,"yyyy-mm-dd"),'
-    + 'Ventas!X2:X,'
-    + 'Ventas!Y2:Y,'
-    + 'Ventas!Z2:Z,'
-    + 'Ventas!AA2:AA,'
-    + 'Ventas!Q2:Q,'
-    + 'Ventas!U2:U,'
-    + 'Ventas!V2:V,'
-    + 'Ventas!B2:B'
-    + '},'
-    + '"SELECT Col1,SUM(Col2),SUM(Col3),SUM(Col4),SUM(Col5),SUM(Col6),SUM(Col7),SUM(Col8),COUNT(Col9) '
-    + 'WHERE Col1 IS NOT NULL '
-    + 'GROUP BY Col1 '
-    + 'ORDER BY Col1 DESC '
-    + 'LABEL Col1 \'\',SUM(Col2) \'\',SUM(Col3) \'\',SUM(Col4) \'\',SUM(Col5) \'\',SUM(Col6) \'\',SUM(Col7) \'\',SUM(Col8) \'\',COUNT(Col9) \'\'"'
+    '=IFERROR(QUERY(Resumen!A2:J,'
+    + '"SELECT A, SUM(G), SUM(H), SUM(I), SUM(J), SUM(C), SUM(D), SUM(E), SUM(F) '
+    + 'WHERE A IS NOT NULL '
+    + 'GROUP BY A '
+    + 'ORDER BY A DESC '
+    + 'LABEL A \'\', SUM(G) \'\', SUM(H) \'\', SUM(I) \'\', SUM(J) \'\', SUM(C) \'\', SUM(D) \'\', SUM(E) \'\', SUM(F) \'\'"'
     + ',0),"Sin ventas aún")'
   );
 
@@ -353,6 +343,8 @@ function generarPdfRecibo(p) {
 
 /**
  * HTML del recibo — mismo diseño que imprimirRecibo() en index.html, sin firmas.
+ * NOTA: Usa layout 100% basado en tablas para compatibilidad con conversión Google Docs → PDF.
+ * CSS flexbox, gap, display:inline-block son ignorados por Google Docs.
  */
 function buildReciboHTML(p) {
   const c     = p.cliente     || {};
@@ -362,16 +354,20 @@ function buildReciboHTML(p) {
 
   // ── Filas de cajas con tachado si hay descuento por caja ──
   const filas = (p.cajas || []).map(function(l) {
-    const tipo    = l.tipo === 'cerrada' ? 'Cerrada' : 'Combinada';
-    const tagBg   = l.tipo === 'cerrada' ? '#EEF4F8' : '#f0faf6';
-    const baseP   = l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA;
+    const tipo  = l.tipo === 'cerrada' ? 'Cerrada' : 'Combinada';
+    const tagBg = l.tipo === 'cerrada' ? '#EEF4F8' : '#f0faf6';
+    const baseP = l.tipo === 'cerrada' ? P_CERRADA  : P_COMBINADA;
     const tachado = l.descCaja > 0
       ? '<span style="text-decoration:line-through;color:#ccc;font-size:9px;margin-right:4px">u$' + baseP + '</span>'
       : '';
     return '<tr style="border-bottom:1px solid #f5f2ec">'
-      + '<td style="padding:6px 8px"><span style="display:inline-block;background:' + tagBg + ';color:' + DARK + ';font-size:9px;padding:2px 7px;border-radius:2px;font-weight:500">' + tipo + '</span></td>'
+      + '<td style="padding:6px 8px;width:80px">'
+      +   '<table cellpadding="0" cellspacing="0"><tr>'
+      +     '<td bgcolor="' + tagBg + '" style="padding:2px 7px;font-size:9px;font-weight:500;color:' + DARK + '">' + tipo + '</td>'
+      +   '</tr></table>'
+      + '</td>'
       + '<td style="padding:6px 8px;color:#777;font-size:10.5px">' + l.detalle + '</td>'
-      + '<td style="padding:6px 8px;text-align:right;font-weight:600;color:' + DARK + ';font-size:11px">' + tachado + 'u$' + l.precio + '</td>'
+      + '<td style="padding:6px 8px;text-align:right;font-weight:600;color:' + DARK + ';font-size:11px;white-space:nowrap">' + tachado + 'u$' + l.precio + '</td>'
       + '</tr>';
   }).join('');
 
@@ -387,98 +383,169 @@ function buildReciboHTML(p) {
       + '<td style="padding:4px 8px;text-align:right;font-size:10px;color:#999">u$' + subtotalUSD + '</td></tr>'
       + '<tr><td colspan="2" style="padding:4px 8px;font-size:10px;color:#e67e22">Desc. general ' + p.descuentoGlobal + '%</td>'
       + '<td style="padding:4px 8px;text-align:right;font-size:10px;color:#e67e22;font-weight:600">'
-      + (ahorroUSD > 0 ? '− u$' + ahorroUSD : '') + '</td></tr>'
+      + (ahorroUSD > 0 ? '&#8722; u$' + ahorroUSD : '') + '</td></tr>'
     : '';
 
-  // ── Detalles de pago ──
+  // ── Detalles de pago (filas de tabla en lugar de divs flex) ──
   const metodoRow = p.metodoCobro
-    ? '<div style="display:flex;gap:12px;padding:2px 0"><span style="color:#bbb;min-width:120px;font-size:10px">Método de cobro</span><span style="color:#1a1a1a;font-weight:500;font-size:11px">' + p.metodoCobro + '</span></div>' : '';
+    ? '<tr><td style="padding:2px 0;color:#bbb;font-size:10px;width:130px">Método de cobro</td>'
+      + '<td style="padding:2px 0;color:#1a1a1a;font-weight:500;font-size:11px">' + p.metodoCobro + '</td></tr>'
+    : '';
   const tcRow = p.tipoCambio
-    ? '<div style="display:flex;gap:12px;padding:2px 0"><span style="color:#bbb;min-width:120px;font-size:10px">Tipo de cambio</span><span style="color:#1a1a1a;font-weight:500;font-size:11px">AR$' + Number(p.tipoCambio).toLocaleString('es-AR') + ' / U$D</span></div>' : '';
+    ? '<tr><td style="padding:2px 0;color:#bbb;font-size:10px">Tipo de cambio</td>'
+      + '<td style="padding:2px 0;color:#1a1a1a;font-weight:500;font-size:11px">AR$' + Number(p.tipoCambio).toLocaleString('es-AR') + ' / U$D</td></tr>'
+    : '';
   const condRow = p.condFiscal
-    ? '<div style="display:flex;gap:12px;padding:2px 0"><span style="color:#bbb;min-width:120px;font-size:10px">Cond. fiscal</span><span style="color:#1a1a1a;font-weight:500;font-size:11px">' + p.condFiscal + (!f.mismosContacto && f.razonSocial ? ' — ' + f.razonSocial : '') + '</span></div>' : '';
+    ? '<tr><td style="padding:2px 0;color:#bbb;font-size:10px">Cond. fiscal</td>'
+      + '<td style="padding:2px 0;color:#1a1a1a;font-weight:500;font-size:11px">' + p.condFiscal + (!f.mismosContacto && f.razonSocial ? ' &#8212; ' + f.razonSocial : '') + '</td></tr>'
+    : '';
   const totalARSStr = p.totalARS
-    ? '<div style="font-size:11px;color:#aaa;margin-top:3px">AR$ ' + Number(p.totalARS).toLocaleString('es-AR') + '</div>' : '';
+    ? '<div style="font-size:11px;color:#aaa;margin-top:3px">AR$ ' + Number(p.totalARS).toLocaleString('es-AR') + '</div>'
+    : '';
 
   // ── Bloque de facturación ──
   const instrMap = {
-    'Resp. Inscripto': { bg:'#eff6ff', border:'#93c5fd', color:'#1e3a8a', icono:'▲',
+    'Resp. Inscripto': { bg:'#eff6ff', border:'#93c5fd', color:'#1e3a8a', icono:'&#9650;',
       texto:'Se emitirá Factura A. Verificar CUIT y razón social con administración antes de procesar.' },
-    'Monotributista':  { bg:'#f0fdf4', border:'#86efac', color:'#14532d', icono:'●',
+    'Monotributista':  { bg:'#f0fdf4', border:'#86efac', color:'#14532d', icono:'&#9679;',
       texto:'Se emitirá Factura B. Datos registrados para procesamiento posterior por administración.' },
-    'Cons. Final':     { bg:'#f0fdf4', border:'#86efac', color:'#14532d', icono:'●',
+    'Cons. Final':     { bg:'#f0fdf4', border:'#86efac', color:'#14532d', icono:'&#9679;',
       texto:'Se emitirá Factura B (Consumidor Final). Sin CUIT específico requerido.' }
   };
   const instrData  = p.condFiscal && instrMap[p.condFiscal] ? instrMap[p.condFiscal] : null;
   const facRazon   = (!f.mismosContacto && f.razonSocial)     ? f.razonSocial     : '';
   const facCuit    = (!f.mismosContacto && f.cuitFacturacion) ? f.cuitFacturacion : '';
+
   const datosFactRow = (facRazon || facCuit)
-    ? '<div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(0,0,0,0.1);display:flex;gap:20px">'
-      + (facRazon ? '<div><div style="font-size:8px;opacity:.7">Razón social</div><div style="font-size:10.5px;font-weight:600">' + facRazon + '</div></div>' : '')
-      + (facCuit  ? '<div><div style="font-size:8px;opacity:.7">CUIT</div><div style="font-size:10.5px;font-weight:600">' + facCuit + '</div></div>' : '')
-      + '</div>' : '';
+    ? '<tr><td colspan="2" style="padding-top:7px;border-top:1px solid rgba(0,0,0,0.1)">'
+      + '<table cellpadding="0" cellspacing="0"><tr>'
+      + (facRazon
+        ? '<td style="padding-right:20px"><div style="font-size:8px;opacity:.7">Razón social</div>'
+          + '<div style="font-size:10.5px;font-weight:600">' + facRazon + '</div></td>'
+        : '')
+      + (facCuit
+        ? '<td><div style="font-size:8px;opacity:.7">CUIT</div>'
+          + '<div style="font-size:10.5px;font-weight:600">' + facCuit + '</div></td>'
+        : '')
+      + '</tr></table></td></tr>'
+    : '';
+
   const facturacionBlock = instrData
-    ? '<div style="margin-top:16px;padding:10px 14px;background:' + instrData.bg + ';border:1px solid ' + instrData.border + ';border-radius:6px">'
-      + '<div style="font-size:8px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:' + instrData.color + ';margin-bottom:4px">' + instrData.icono + ' Instrucciones de facturación</div>'
-      + '<div style="font-size:10.5px;color:' + instrData.color + ';line-height:1.5">' + instrData.texto + '</div>'
-      + datosFactRow + '</div>' : '';
+    ? '<table cellpadding="0" cellspacing="0" width="100%" style="margin-top:16px;border:1px solid ' + instrData.border + '">'
+      + '<tr><td bgcolor="' + instrData.bg + '" style="padding:10px 14px">'
+      + '<table cellpadding="0" cellspacing="0" width="100%">'
+      + '<tr><td style="font-size:8px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:' + instrData.color + ';padding-bottom:4px">'
+      + instrData.icono + ' Instrucciones de facturación</td></tr>'
+      + '<tr><td style="font-size:10.5px;color:' + instrData.color + ';line-height:1.5">' + instrData.texto + '</td></tr>'
+      + datosFactRow
+      + '</table>'
+      + '</td></tr></table>'
+    : '';
 
+  // ════ CONSTRUCCIÓN DEL HTML ════
   return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
-    + '<style>* { box-sizing: border-box; margin: 0; padding: 0; } body { background: #FAF7F2; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; padding: 24px; } table { border-collapse: collapse; width: 100%; }</style>'
+    + '<style>body{background:#FAF7F2;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#1a1a1a;padding:24px}table{border-collapse:collapse}td,th{vertical-align:top}</style>'
     + '</head><body>'
-    + '<div style="max-width:720px;margin:0 auto;background:#fff">'
 
-    // HEADER
-    + '<div style="padding:20px 36px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e0ddd6">'
-    + '<div><div style="font-size:22px;font-weight:700;color:' + DARK + ';letter-spacing:-.5px">AGF Messenchymal</div>'
-    + '<div style="font-size:10px;color:#aaa;margin-top:3px;font-style:italic">dermacells.com.ar · Argentina</div></div>'
-    + '<div style="text-align:right"><div style="font-size:28px;font-weight:300;color:' + DARK + ';line-height:1">Venta #' + p.ventaNum + '</div>'
-    + '<div style="font-size:10px;color:#aaa;margin-top:4px">' + (p.fecha || '') + '</div></div></div>'
+    // ── Contenedor principal ──
+    + '<table align="center" cellpadding="0" cellspacing="0" width="680" bgcolor="#ffffff">'
 
-    // BANDA
-    + '<div style="background:' + DARK + ';padding:7px 36px;display:flex;justify-content:space-between">'
-    + '<span style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:' + GREEN + '">Comprobante de compra</span>'
-    + '<span style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:' + GREEN + '">Dermacells S.A.</span></div>'
+    // ── HEADER ──
+    + '<tr><td style="padding:20px 36px 16px;border-bottom:1px solid #e0ddd6">'
+    +   '<table cellpadding="0" cellspacing="0" width="100%"><tr>'
+    +     '<td valign="middle">'
+    +       '<div style="font-size:22px;font-weight:700;color:' + DARK + ';letter-spacing:-.5px">AGF Messenchymal</div>'
+    +       '<div style="font-size:10px;color:#aaa;margin-top:3px;font-style:italic">dermacells.com.ar &middot; Argentina</div>'
+    +     '</td>'
+    +     '<td valign="middle" align="right">'
+    +       '<div style="font-size:28px;font-weight:300;color:' + DARK + ';line-height:1">Venta #' + p.ventaNum + '</div>'
+    +       '<div style="font-size:10px;color:#aaa;margin-top:4px">' + (p.fecha || '') + '</div>'
+    +     '</td>'
+    +   '</tr></table>'
+    + '</td></tr>'
 
-    + '<div style="padding:18px 36px 24px">'
+    // ── BANDA OSCURA ──
+    + '<tr><td bgcolor="' + DARK + '" style="padding:7px 36px">'
+    +   '<table cellpadding="0" cellspacing="0" width="100%"><tr>'
+    +     '<td style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:' + GREEN + '">Comprobante de compra</td>'
+    +     '<td align="right" style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:' + GREEN + '">Dermacells S.A.</td>'
+    +   '</tr></table>'
+    + '</td></tr>'
 
-    // CLIENTE
-    + '<div style="font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e8e8e0">Datos del cliente</div>'
-    + '<div style="display:flex;gap:20px;margin-bottom:14px;flex-wrap:wrap">'
-    + '<div style="min-width:140px"><div style="font-size:8px;color:#bbb;margin-bottom:2px">Nombre</div><div style="font-size:12px;font-weight:600">' + (c.nombre || '') + ' ' + (c.apellido || '') + '</div></div>'
-    + '<div style="min-width:120px"><div style="font-size:8px;color:#bbb;margin-bottom:2px">CUIT / CUIL</div><div style="font-size:12px;font-weight:600">' + (c.cuit || '') + '</div></div>'
-    + (c.localidad ? '<div><div style="font-size:8px;color:#bbb;margin-bottom:2px">Localidad</div><div style="font-size:12px">' + c.localidad + '</div></div>' : '')
-    + '</div>'
-    + ((c.mail || c.tel)
-        ? '<div style="display:flex;gap:20px;margin-bottom:14px">'
-          + (c.mail ? '<div><div style="font-size:8px;color:#bbb;margin-bottom:2px">Email</div><div style="font-size:11px">' + c.mail + '</div></div>' : '')
-          + (c.tel  ? '<div><div style="font-size:8px;color:#bbb;margin-bottom:2px">Teléfono</div><div style="font-size:11px">' + c.tel  + '</div></div>' : '')
-          + '</div>' : '')
+    // ── CUERPO ──
+    + '<tr><td style="padding:18px 36px 24px">'
 
-    // TABLA DE CAJAS
-    + '<div style="font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e8e8e0">Detalle</div>'
-    + '<table style="margin-bottom:16px"><thead><tr style="border-bottom:2px solid ' + DARK + '">'
-    + '<th style="padding:5px 8px;text-align:left;font-size:9px;font-weight:600;color:#bbb;letter-spacing:.1em;text-transform:uppercase">Tipo</th>'
-    + '<th style="padding:5px 8px;text-align:left;font-size:9px;font-weight:600;color:#bbb;letter-spacing:.1em;text-transform:uppercase">Contenido</th>'
-    + '<th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:600;color:#bbb;letter-spacing:.1em;text-transform:uppercase">Precio</th>'
-    + '</tr></thead><tbody>' + filas + descGlobalRows + '</tbody></table>'
+    //   CLIENTE — título sección
+    +   '<div style="font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e8e8e0">Datos del cliente</div>'
 
-    // TOTAL + PAGO
-    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-top:1px solid #e8e8e0;padding-top:14px">'
-    + '<div><div style="font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:6px">Detalles de pago</div>'
-    + metodoRow + tcRow + condRow + '</div>'
-    + '<div style="text-align:right"><div style="font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:3px">Total</div>'
-    + '<div style="font-size:36px;font-weight:600;color:' + DARK + ';line-height:1">u$' + p.totalUSD + '</div>'
-    + totalARSStr + '</div></div>'
+    //   CLIENTE — fila nombre / cuit / localidad
+    +   '<table cellpadding="0" cellspacing="0" style="margin-bottom:14px"><tr>'
+    +     '<td style="padding-right:24px;min-width:150px">'
+    +       '<div style="font-size:8px;color:#bbb;margin-bottom:2px">Nombre</div>'
+    +       '<div style="font-size:12px;font-weight:600">' + (c.nombre || '') + ' ' + (c.apellido || '') + '</div>'
+    +     '</td>'
+    +     '<td style="padding-right:24px;min-width:130px">'
+    +       '<div style="font-size:8px;color:#bbb;margin-bottom:2px">CUIT / CUIL</div>'
+    +       '<div style="font-size:12px;font-weight:600">' + (c.cuit || '') + '</div>'
+    +     '</td>'
+    +     (c.localidad
+    +       ? '<td><div style="font-size:8px;color:#bbb;margin-bottom:2px">Localidad</div>'
+    +         + '<div style="font-size:12px">' + c.localidad + '</div></td>'
+    +       : '')
+    +   '</tr></table>'
 
-    + facturacionBlock
-    + '</div>'
+    //   CLIENTE — fila email / tel
+    +   ((c.mail || c.tel)
+    +     ? '<table cellpadding="0" cellspacing="0" style="margin-bottom:14px"><tr>'
+    +       + (c.mail ? '<td style="padding-right:24px"><div style="font-size:8px;color:#bbb;margin-bottom:2px">Email</div><div style="font-size:11px">' + c.mail + '</div></td>' : '')
+    +       + (c.tel  ? '<td><div style="font-size:8px;color:#bbb;margin-bottom:2px">Teléfono</div><div style="font-size:11px">' + c.tel  + '</div></td>' : '')
+    +       + '</tr></table>'
+    +     : '')
 
-    // PIE
-    + '<div style="background:#f7f7f5;border-top:1px solid #e8e8e0;padding:10px 36px;display:flex;justify-content:space-between">'
-    + '<span style="font-size:9px;color:#bbb">Documento válido como comprobante de compra</span>'
-    + '<span style="font-size:9px;color:#bbb">AGF Messenchymal · BAAS 2026</span></div>'
-    + '</div></body></html>';
+    //   DETALLE — título sección
+    +   '<div style="font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e8e8e0">Detalle</div>'
+
+    //   DETALLE — tabla de cajas
+    +   '<table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:16px">'
+    +   '<thead><tr style="border-bottom:2px solid ' + DARK + '">'
+    +   '<th style="padding:5px 8px;text-align:left;font-size:9px;font-weight:600;color:#bbb;letter-spacing:.1em;text-transform:uppercase;width:80px">Tipo</th>'
+    +   '<th style="padding:5px 8px;text-align:left;font-size:9px;font-weight:600;color:#bbb;letter-spacing:.1em;text-transform:uppercase">Contenido</th>'
+    +   '<th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:600;color:#bbb;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap">Precio</th>'
+    +   '</tr></thead><tbody>' + filas + descGlobalRows + '</tbody></table>'
+
+    //   TOTAL + PAGO — divididos izquierda/derecha con tabla
+    +   '<table cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #e8e8e0;padding-top:14px"><tr>'
+
+    //     Izquierda: detalles de pago
+    +     '<td valign="top">'
+    +       '<div style="font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:6px">Detalles de pago</div>'
+    +       '<table cellpadding="0" cellspacing="0">' + metodoRow + tcRow + condRow + '</table>'
+    +     '</td>'
+
+    //     Derecha: total
+    +     '<td valign="top" align="right" style="white-space:nowrap">'
+    +       '<div style="font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:3px">Total</div>'
+    +       '<div style="font-size:36px;font-weight:600;color:' + DARK + ';line-height:1">u$' + p.totalUSD + '</div>'
+    +       totalARSStr
+    +     '</td>'
+
+    +   '</tr></table>'
+
+    //   FACTURACIÓN
+    +   facturacionBlock
+
+    + '</td></tr>'
+
+    // ── PIE ──
+    + '<tr bgcolor="#f7f7f5"><td style="padding:10px 36px;border-top:1px solid #e8e8e0">'
+    +   '<table cellpadding="0" cellspacing="0" width="100%"><tr>'
+    +     '<td style="font-size:9px;color:#bbb">Documento válido como comprobante de compra</td>'
+    +     '<td align="right" style="font-size:9px;color:#bbb">AGF Messenchymal &middot; BAAS 2026</td>'
+    +   '</tr></table>'
+    + '</td></tr>'
+
+    + '</table>'
+    + '</body></html>';
 }
 
 
