@@ -1,15 +1,14 @@
 // ═══════════════════════════════════════════════════════════════
 //  AGF Messenchymal — Ventas Congreso · Google Apps Script
-//  Pegá este código en script.google.com y configurá las dos
-//  constantes de abajo antes de hacer "Implementar > Web app".
 // ═══════════════════════════════════════════════════════════════
 
-const SPREADSHEET_ID  = '1K2rELW54yEqQ8pKXHyPeyDqVLygeCQyQJMeH8w4n5m4';
-const ADMIN_EMAIL     = 'alan.haslop@dermacells.com.ar';
-const REPLY_TO        = 'alan.haslop@dermacells.com.ar';
-const SHEET_VENTAS    = 'Ventas';
-const SHEET_RESUMEN   = 'Resumen';
-const PDF_FOLDER_ID   = '1qGxephO8pfFAz41B28f39BZM40YdM2GS'; // Carpeta Drive donde se guardan los recibos
+const SPREADSHEET_ID = '1K2rELW54yEqQ8pKXHyPeyDqVLygeCQyQJMeH8w4n5m4';
+const ADMIN_EMAIL    = 'alan.haslop@dermacells.com.ar';
+const REPLY_TO       = 'alan.haslop@dermacells.com.ar';
+const SHEET_VENTAS   = 'Ventas';
+const SHEET_RESUMEN  = 'Resumen';
+const SHEET_STOCK    = 'Stock';
+const PDF_FOLDER_ID  = '1qGxephO8pfFAz41B28f39BZM40YdM2GS';
 
 // Precios base (deben coincidir con index.html)
 const P_CERRADA   = 750;
@@ -26,11 +25,12 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     if (!p.ventaNum) throw new Error('Payload inválido: falta ventaNum');
 
-    // Generar PDF, guardarlo en Drive y obtener URL + blob para email
+    // Generar PDF primero para tener la URL antes de guardar en Sheets
     const { blob: pdfBlob, url: pdfUrl } = generarPdfRecibo(p);
 
-    guardarVenta(p, pdfUrl);    // pasa la URL para el hipervínculo en Sheets
+    guardarVenta(p, pdfUrl);
     actualizarResumen(p);
+    obtenerOCrearHoja(SHEET_STOCK, crearHojaStock); // crea la hoja si no existe
 
     if (p.cliente && p.cliente.mail) enviarEmailCliente(p, pdfBlob);
     if (ADMIN_EMAIL)                 enviarEmailAdmin(p, pdfBlob);
@@ -51,49 +51,74 @@ function doGet() {
 }
 
 
+// ── CALCULAR UNIDADES POR PRODUCTO ───────────────────────────────
+// Cerrada: 5 unidades del producto indicado
+// Combinada: 1 unidad por cada slot
+function calcUnidades(p) {
+  const u = { Dermal: 0, Capillary: 0, Pink: 0, Biomask: 0 };
+  (p.cajas || []).forEach(function(cj) {
+    if (cj.tipo === 'cerrada') {
+      if (u[cj.detalle] !== undefined) u[cj.detalle] += 5;
+    } else {
+      cj.detalle.split(',').forEach(function(prod) {
+        const key = prod.trim();
+        if (u[key] !== undefined) u[key]++;
+      });
+    }
+  });
+  return u;
+}
+
+
 // ── GUARDAR VENTA EN HOJA ────────────────────────────────────────
+// Columnas: A–V datos venta | W PDF link | X–AA unidades por producto
 function guardarVenta(p, pdfUrl) {
   const sheet = obtenerOCrearHoja(SHEET_VENTAS, crearHeadersVentas);
   const c = p.cliente     || {};
   const f = p.facturacion || {};
+  const u = calcUnidades(p);
 
-  const cajasDetalle = (p.cajas || []).map(cj => {
-    let txt = `Caja ${cj.caja} (${cj.tipo}): ${cj.detalle}`;
-    if (cj.descCaja > 0) txt += ` [-${cj.descCaja}%]`;
-    txt += ` = u$${cj.precio}`;
+  const cajasDetalle = (p.cajas || []).map(function(cj) {
+    let txt = 'Caja ' + cj.caja + ' (' + cj.tipo + '): ' + cj.detalle;
+    if (cj.descCaja > 0) txt += ' [-' + cj.descCaja + '%]';
+    txt += ' = u$' + cj.precio;
     return txt;
   }).join('\n');
 
   sheet.appendRow([
-    new Date(),
-    p.ventaNum,
-    p.dispositivo    || '',
-    p.fecha          || '',
-    c.nombre         || '',
-    c.apellido       || '',
-    c.cuit           || '',
-    c.mail           || '',
-    c.tel            || '',
-    c.localidad      || '',
-    p.condFiscal     || '',
-    f.mismosContacto ? '' : (f.razonSocial     || ''),
-    f.mismosContacto ? '' : (f.cuitFacturacion || ''),
-    p.metodoCobro    || '',
-    p.moneda         || 'USD',
-    p.tipoCambio     || '',
-    (p.cajas || []).length,
-    cajasDetalle,
-    p.descuentoGlobal || 0,
-    p.subtotalUSD    || p.totalUSD || 0,
-    p.totalUSD       || 0,
-    p.totalARS       || '',
-    ''  // col W: placeholder para el hipervínculo al PDF
+    new Date(),                                           // A  Timestamp
+    p.ventaNum,                                           // B  Venta #
+    p.dispositivo    || '',                               // C  Dispositivo
+    p.fecha          || '',                               // D  Fecha local
+    c.nombre         || '',                               // E  Nombre
+    c.apellido       || '',                               // F  Apellido
+    c.cuit           || '',                               // G  CUIT/CUIL
+    c.mail           || '',                               // H  Email
+    c.tel            || '',                               // I  Teléfono
+    c.localidad      || '',                               // J  Localidad
+    p.condFiscal     || '',                               // K  Cond. Fiscal
+    f.mismosContacto ? '' : (f.razonSocial     || ''),   // L  Razón Social
+    f.mismosContacto ? '' : (f.cuitFacturacion || ''),   // M  CUIT Fact.
+    p.metodoCobro    || '',                               // N  Método cobro
+    p.moneda         || 'USD',                            // O  Moneda
+    p.tipoCambio     || '',                               // P  Tipo cambio
+    (p.cajas || []).length,                               // Q  Cant. cajas
+    cajasDetalle,                                         // R  Detalle cajas
+    p.descuentoGlobal || 0,                               // S  Desc. global %
+    p.subtotalUSD    || p.totalUSD || 0,                  // T  Subtotal U$D
+    p.totalUSD       || 0,                                // U  Total U$D
+    p.totalARS       || '',                               // V  Total ARS
+    '',                                                   // W  Recibo PDF (fórmula abajo)
+    u.Dermal,                                             // X  Dermal (unidades)
+    u.Capillary,                                          // Y  Capillary (unidades)
+    u.Pink,                                               // Z  Pink (unidades)
+    u.Biomask                                             // AA Biomask (unidades)
   ]);
 
-  // Agregar hipervínculo al PDF en la última fila, columna W (23)
+  // Hipervínculo al PDF en columna W
   if (pdfUrl) {
     const lastRow = sheet.getLastRow();
-    sheet.getRange(lastRow, 23).setFormula(`=HYPERLINK("${pdfUrl}","📄 Ver recibo")`);
+    sheet.getRange(lastRow, 23).setFormula('=HYPERLINK("' + pdfUrl + '","📄 Ver recibo")');
   }
 }
 
@@ -105,94 +130,229 @@ function crearHeadersVentas(sheet) {
     'Método cobro','Moneda','Tipo de cambio',
     'Cant. cajas','Detalle cajas',
     'Desc. global %','Subtotal U$D','Total U$D','Total ARS',
-    'Recibo PDF'  // col W
+    'Recibo PDF',
+    'Dermal (u)','Capillary (u)','Pink (u)','Biomask (u)'
   ];
   sheet.appendRow(headers);
   sheet.setFrozenRows(1);
-  const hdrRange = sheet.getRange(1, 1, 1, headers.length);
-  hdrRange.setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
+  sheet.getRange(1, 1, 1, headers.length)
+    .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
   sheet.setColumnWidth(1,  160);
   sheet.setColumnWidth(4,  140);
   sheet.setColumnWidth(18, 280);
   sheet.setColumnWidths(5, 2, 110);
+  sheet.setColumnWidth(23, 100); // PDF
+  // Destacar columnas de stock en celeste
+  sheet.getRange(1, 24, 1, 4).setBackground('#1B3A52');
 }
 
 
-// ── HOJA DE RESUMEN ──────────────────────────────────────────────
+// ── HOJA DE RESUMEN (por día + método) ──────────────────────────
 function actualizarResumen(p) {
   const sheet = obtenerOCrearHoja(SHEET_RESUMEN, crearHeadersResumen);
   const hoy   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
   const datos = sheet.getDataRange().getValues();
+  const u     = calcUnidades(p);
 
-  const colFecha = 0, colMetodo = 1, colCajas = 2, colUSD = 3, colARS = 4, colVentas = 5;
+  const COL = { fecha:0, metodo:1, cajas:2, usd:3, ars:4, ventas:5,
+                dermal:6, capillary:7, pink:8, biomask:9 };
+
   let filaExistente = -1;
   for (let i = 1; i < datos.length; i++) {
-    if (datos[i][colFecha] === hoy && datos[i][colMetodo] === p.metodoCobro) {
+    if (datos[i][COL.fecha] === hoy && datos[i][COL.metodo] === p.metodoCobro) {
       filaExistente = i + 1;
       break;
     }
   }
 
   const cantCajas = (p.cajas || []).length;
-  const totalUSD  = p.totalUSD || 0;
-  const totalARS  = p.totalARS || 0;
+  const totalUSD  = p.totalUSD  || 0;
+  const totalARS  = p.totalARS  || 0;
 
   if (filaExistente > 0) {
-    const fila = sheet.getRange(filaExistente, 1, 1, 6).getValues()[0];
-    sheet.getRange(filaExistente, colCajas  + 1).setValue(fila[colCajas]  + cantCajas);
-    sheet.getRange(filaExistente, colUSD    + 1).setValue(fila[colUSD]    + totalUSD);
-    sheet.getRange(filaExistente, colARS    + 1).setValue(fila[colARS]    + totalARS);
-    sheet.getRange(filaExistente, colVentas + 1).setValue(fila[colVentas] + 1);
+    const fila = sheet.getRange(filaExistente, 1, 1, 10).getValues()[0];
+    sheet.getRange(filaExistente, COL.cajas    + 1).setValue(fila[COL.cajas]    + cantCajas);
+    sheet.getRange(filaExistente, COL.usd      + 1).setValue(fila[COL.usd]      + totalUSD);
+    sheet.getRange(filaExistente, COL.ars      + 1).setValue(fila[COL.ars]      + totalARS);
+    sheet.getRange(filaExistente, COL.ventas   + 1).setValue(fila[COL.ventas]   + 1);
+    sheet.getRange(filaExistente, COL.dermal   + 1).setValue(fila[COL.dermal]   + u.Dermal);
+    sheet.getRange(filaExistente, COL.capillary+ 1).setValue(fila[COL.capillary]+ u.Capillary);
+    sheet.getRange(filaExistente, COL.pink     + 1).setValue(fila[COL.pink]     + u.Pink);
+    sheet.getRange(filaExistente, COL.biomask  + 1).setValue(fila[COL.biomask]  + u.Biomask);
   } else {
-    sheet.appendRow([hoy, p.metodoCobro, cantCajas, totalUSD, totalARS, 1]);
+    sheet.appendRow([hoy, p.metodoCobro, cantCajas, totalUSD, totalARS, 1,
+                     u.Dermal, u.Capillary, u.Pink, u.Biomask]);
   }
 }
 
 function crearHeadersResumen(sheet) {
-  sheet.appendRow(['Fecha','Método cobro','Cajas vendidas','Total U$D','Total ARS','# Ventas']);
+  sheet.appendRow(['Fecha','Método cobro','Cajas vendidas','Total U$D','Total ARS','# Ventas',
+                   'Dermal (u)','Capillary (u)','Pink (u)','Biomask (u)']);
   sheet.setFrozenRows(1);
-  sheet.getRange(1, 1, 1, 6).setBackground('#1B3A52').setFontColor('#ffffff').setFontWeight('bold');
+  sheet.getRange(1, 1, 1, 10)
+    .setBackground('#1B3A52').setFontColor('#ffffff').setFontWeight('bold');
+}
+
+
+// ── HOJA DE STOCK ────────────────────────────────────────────────
+function crearHojaStock(sheet) {
+  const PRODS = ['Dermal', 'Capillary', 'Pink', 'Biomask'];
+  // Columnas en hoja Ventas para cada producto
+  const COL_VENTAS = { Dermal: 'X', Capillary: 'Y', Pink: 'Z', Biomask: 'AA' };
+
+  // ── Título ──
+  sheet.getRange('A1').setValue('CONTROL DE STOCK — BAAS 2026');
+  sheet.getRange('A1:F1').merge()
+    .setBackground('#1B3A52').setFontColor('#ffffff')
+    .setFontSize(13).setFontWeight('bold').setHorizontalAlignment('center');
+
+  // ── Tabla de stock ──
+  sheet.getRange('A3:F3').setValues([[
+    'Producto', 'Stock Inicial', 'Vendidas Total', 'Stock Disponible', 'Vendidas Hoy', 'Stock Fin del Día'
+  ]]);
+  sheet.getRange('A3:F3')
+    .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
+
+  PRODS.forEach(function(prod, i) {
+    var row  = 4 + i;
+    var col  = COL_VENTAS[prod];
+    sheet.getRange('A' + row).setValue(prod).setFontWeight('bold');
+    sheet.getRange('B' + row).setValue(0);   // ← ingresá el stock inicial acá
+    // Vendidas Total (todas las ventas)
+    sheet.getRange('C' + row).setFormula(
+      '=IFERROR(SUM(Ventas!' + col + '2:' + col + '),0)'
+    );
+    // Stock disponible = inicial - vendidas total
+    sheet.getRange('D' + row).setFormula('=B' + row + '-C' + row);
+    // Vendidas hoy
+    sheet.getRange('E' + row).setFormula(
+      '=IFERROR(SUMIFS(Ventas!' + col + ':' + col + ',Ventas!A:A,">="&TODAY(),Ventas!A:A,"<"&TODAY()+1),0)'
+    );
+    // Stock fin del día = disponible - vendidas hoy
+    sheet.getRange('F' + row).setFormula('=D' + row + '-E' + row);
+  });
+
+  // Destacar celdas editables de Stock Inicial en amarillo
+  sheet.getRange('B4:B7')
+    .setBackground('#FFF9C4')
+    .setNote('✏️ Ingresá el stock inicial antes del evento');
+
+  // Bordes y colores alternos en tabla
+  sheet.getRange('A3:F7').setBorder(true, true, true, true, true, true);
+  sheet.getRange('A4:F4').setBackground('#f9f9f7');
+  sheet.getRange('A5:F5').setBackground('#ffffff');
+  sheet.getRange('A6:F6').setBackground('#f9f9f7');
+  sheet.getRange('A7:F7').setBackground('#ffffff');
+
+  // ── Separator ──
+  sheet.getRange('A9').setValue('INFORME DIARIO POR PRODUCTO')
+    .setFontWeight('bold').setFontSize(11).setFontColor('#1B3A52');
+
+  sheet.getRange('A10:I10').setValues([[
+    'Fecha', 'Dermal', 'Capillary', 'Pink', 'Biomask', 'Cajas', 'Total U$D', 'Total ARS', '# Ventas'
+  ]]);
+  sheet.getRange('A10:I10')
+    .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
+
+  // QUERY que agrupa ventas por día desde hoja Ventas
+  // Columnas del array: Col1=fecha, Col2=X(Dermal), Col3=Y(Capil), Col4=Z(Pink), Col5=AA(Biomask), Col6=Q(cajas), Col7=U(USD), Col8=V(ARS), Col9=B(venta#)
+  sheet.getRange('A11').setFormula(
+    '=IFERROR(QUERY({'
+    + 'TEXT(Ventas!A2:A,"yyyy-mm-dd"),'
+    + 'Ventas!X2:X,'
+    + 'Ventas!Y2:Y,'
+    + 'Ventas!Z2:Z,'
+    + 'Ventas!AA2:AA,'
+    + 'Ventas!Q2:Q,'
+    + 'Ventas!U2:U,'
+    + 'Ventas!V2:V,'
+    + 'Ventas!B2:B'
+    + '},'
+    + '"SELECT Col1,SUM(Col2),SUM(Col3),SUM(Col4),SUM(Col5),SUM(Col6),SUM(Col7),SUM(Col8),COUNT(Col9) '
+    + 'WHERE Col1 IS NOT NULL '
+    + 'GROUP BY Col1 '
+    + 'ORDER BY Col1 DESC '
+    + 'LABEL Col1 \'\',SUM(Col2) \'\',SUM(Col3) \'\',SUM(Col4) \'\',SUM(Col5) \'\',SUM(Col6) \'\',SUM(Col7) \'\',SUM(Col8) \'\',COUNT(Col9) \'\'"'
+    + ',0),"Sin ventas aún")'
+  );
+
+  // ── Anchos de columna ──
+  sheet.setColumnWidth(1, 120);
+  sheet.setColumnWidth(2, 110);
+  sheet.setColumnWidth(3, 120);
+  sheet.setColumnWidth(4, 130);
+  sheet.setColumnWidth(5, 110);
+  sheet.setColumnWidth(6, 130);
+  sheet.setFrozenRows(0);
 }
 
 
 // ── PDF RECIBO ───────────────────────────────────────────────────
 /**
- * Genera el PDF del recibo, lo guarda en PDF_FOLDER_ID y devuelve
- * { blob, url } donde blob se usa para adjuntar al email y url para
- * el hipervínculo en la hoja de Sheets.
+ * Convierte el HTML del recibo a PDF usando Drive API:
+ * 1. Sube el HTML como Google Doc (Drive lo convierte automáticamente)
+ * 2. Exporta el Google Doc como PDF
+ * 3. Guarda el PDF en la carpeta PDF_FOLDER_ID
+ * 4. Borra el Google Doc temporal
+ * Devuelve { blob, url }
  */
 function generarPdfRecibo(p) {
-  const html     = buildReciboHTML(p);
-  const nombre   = 'Recibo_AGF_Venta' + p.ventaNum + '.pdf';
+  const html   = buildReciboHTML(p);
+  const nombre = 'Recibo_AGF_Venta' + p.ventaNum + '.pdf';
+  const token  = ScriptApp.getOAuthToken();
 
-  // 1. Crear HTML temporal para conversión
-  const htmlBlob  = Utilities.newBlob(html, 'text/html', 'recibo_temp.html');
-  const tempFile  = DriveApp.createFile(htmlBlob);
+  // ── 1. Subir HTML como Google Doc ──
+  const boundary = 'agf_pdf_boundary';
+  const body = '--' + boundary + '\r\n'
+    + 'Content-Type: application/json; charset=UTF-8\r\n\r\n'
+    + JSON.stringify({
+        name: '_temp_recibo_' + p.ventaNum,
+        mimeType: 'application/vnd.google-apps.document'
+      })
+    + '\r\n--' + boundary + '\r\n'
+    + 'Content-Type: text/html; charset=UTF-8\r\n\r\n'
+    + html
+    + '\r\n--' + boundary + '--';
+
+  const uploadResp = UrlFetchApp.fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+    {
+      method: 'POST',
+      contentType: 'multipart/related; boundary=' + boundary,
+      headers: { Authorization: 'Bearer ' + token },
+      payload: body,
+      muteHttpExceptions: true
+    }
+  );
+  const docId = JSON.parse(uploadResp.getContentText()).id;
+  if (!docId) throw new Error('Error creando Google Doc temporal: ' + uploadResp.getContentText());
 
   try {
-    // 2. Convertir a PDF
-    const pdfBlob = tempFile.getAs('application/pdf');
+    // ── 2. Exportar como PDF ──
+    const exportResp = UrlFetchApp.fetch(
+      'https://www.googleapis.com/drive/v3/files/' + docId + '/export?mimeType=application/pdf',
+      { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true }
+    );
+    const pdfBlob = exportResp.getBlob();
     pdfBlob.setName(nombre);
 
-    // 3. Guardar PDF permanentemente en la carpeta indicada
+    // ── 3. Guardar PDF en carpeta definitiva ──
     const folder    = DriveApp.getFolderById(PDF_FOLDER_ID);
     const savedFile = folder.createFile(pdfBlob);
     savedFile.setName(nombre);
 
-    // 4. Obtener blob fresco del archivo guardado para adjuntar al email
     const emailBlob = savedFile.getBlob();
     emailBlob.setName(nombre);
-
     return { blob: emailBlob, url: savedFile.getUrl() };
 
   } finally {
-    tempFile.setTrashed(true); // borrar solo el HTML temporal
+    // ── 4. Borrar Google Doc temporal siempre ──
+    try { DriveApp.getFileById(docId).setTrashed(true); } catch(e) {}
   }
 }
 
 /**
- * HTML del recibo — mismo diseño que imprimirRecibo() en index.html,
- * sin la sección de firmas, sin imágenes de logos (texto branding).
+ * HTML del recibo — mismo diseño que imprimirRecibo() en index.html, sin firmas.
  */
 function buildReciboHTML(p) {
   const c     = p.cliente     || {};
@@ -202,10 +362,10 @@ function buildReciboHTML(p) {
 
   // ── Filas de cajas con tachado si hay descuento por caja ──
   const filas = (p.cajas || []).map(function(l) {
-    const tipo     = l.tipo === 'cerrada' ? 'Cerrada' : 'Combinada';
-    const tagBg    = l.tipo === 'cerrada' ? '#EEF4F8' : '#f0faf6';
-    const baseP    = l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA;
-    const tachado  = l.descCaja > 0
+    const tipo    = l.tipo === 'cerrada' ? 'Cerrada' : 'Combinada';
+    const tagBg   = l.tipo === 'cerrada' ? '#EEF4F8' : '#f0faf6';
+    const baseP   = l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA;
+    const tachado = l.descCaja > 0
       ? '<span style="text-decoration:line-through;color:#ccc;font-size:9px;margin-right:4px">u$' + baseP + '</span>'
       : '';
     return '<tr style="border-bottom:1px solid #f5f2ec">'
@@ -217,9 +377,7 @@ function buildReciboHTML(p) {
 
   // ── Filas de subtotal + descuento global ──
   const subtotalUSD = (p.cajas || []).reduce(function(acc, l) {
-    const base  = l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA;
-    const after = Math.round(base * (1 - (l.descCaja || 0) / 100));
-    return acc + after;
+    return acc + Math.round((l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA) * (1 - (l.descCaja || 0) / 100));
   }, 0);
   const ahorroUSD = (p.descuentoGlobal > 0 && p.descuentoGlobal < 100)
     ? subtotalUSD - p.totalUSD : 0;
@@ -232,33 +390,17 @@ function buildReciboHTML(p) {
       + (ahorroUSD > 0 ? '− u$' + ahorroUSD : '') + '</td></tr>'
     : '';
 
-  // ── Método de pago / TC ──
+  // ── Detalles de pago ──
   const metodoRow = p.metodoCobro
-    ? '<div style="display:flex;gap:12px;padding:2px 0">'
-      + '<span style="color:#bbb;min-width:120px;font-size:10px">Método de cobro</span>'
-      + '<span style="color:#1a1a1a;font-weight:500;font-size:11px">' + p.metodoCobro + '</span></div>'
-    : '';
+    ? '<div style="display:flex;gap:12px;padding:2px 0"><span style="color:#bbb;min-width:120px;font-size:10px">Método de cobro</span><span style="color:#1a1a1a;font-weight:500;font-size:11px">' + p.metodoCobro + '</span></div>' : '';
   const tcRow = p.tipoCambio
-    ? '<div style="display:flex;gap:12px;padding:2px 0">'
-      + '<span style="color:#bbb;min-width:120px;font-size:10px">Tipo de cambio</span>'
-      + '<span style="color:#1a1a1a;font-weight:500;font-size:11px">AR$' + Number(p.tipoCambio).toLocaleString('es-AR') + ' / U$D</span></div>'
-    : '';
-
-  // ── Condición fiscal (solo si hay) ──
+    ? '<div style="display:flex;gap:12px;padding:2px 0"><span style="color:#bbb;min-width:120px;font-size:10px">Tipo de cambio</span><span style="color:#1a1a1a;font-weight:500;font-size:11px">AR$' + Number(p.tipoCambio).toLocaleString('es-AR') + ' / U$D</span></div>' : '';
   const condRow = p.condFiscal
-    ? '<div style="display:flex;gap:12px;padding:2px 0">'
-      + '<span style="color:#bbb;min-width:120px;font-size:10px">Cond. fiscal</span>'
-      + '<span style="color:#1a1a1a;font-weight:500;font-size:11px">' + p.condFiscal
-      + (!f.mismosContacto && f.razonSocial ? ' — ' + f.razonSocial : '')
-      + '</span></div>'
-    : '';
-
-  // ── Total ARS ──
+    ? '<div style="display:flex;gap:12px;padding:2px 0"><span style="color:#bbb;min-width:120px;font-size:10px">Cond. fiscal</span><span style="color:#1a1a1a;font-weight:500;font-size:11px">' + p.condFiscal + (!f.mismosContacto && f.razonSocial ? ' — ' + f.razonSocial : '') + '</span></div>' : '';
   const totalARSStr = p.totalARS
-    ? '<div style="font-size:11px;color:#aaa;margin-top:3px">AR$ ' + Number(p.totalARS).toLocaleString('es-AR') + '</div>'
-    : '';
+    ? '<div style="font-size:11px;color:#aaa;margin-top:3px">AR$ ' + Number(p.totalARS).toLocaleString('es-AR') + '</div>' : '';
 
-  // ── Bloque de facturación (igual que en index.html PATCH A) ──
+  // ── Bloque de facturación ──
   const instrMap = {
     'Resp. Inscripto': { bg:'#eff6ff', border:'#93c5fd', color:'#1e3a8a', icono:'▲',
       texto:'Se emitirá Factura A. Verificar CUIT y razón social con administración antes de procesar.' },
@@ -267,54 +409,40 @@ function buildReciboHTML(p) {
     'Cons. Final':     { bg:'#f0fdf4', border:'#86efac', color:'#14532d', icono:'●',
       texto:'Se emitirá Factura B (Consumidor Final). Sin CUIT específico requerido.' }
   };
-  const instrData = p.condFiscal && instrMap[p.condFiscal] ? instrMap[p.condFiscal] : null;
-
-  // Solo mostrar razón social / CUIT de facturación si son distintos al cliente
-  const facRazon = (!f.mismosContacto && f.razonSocial)     ? f.razonSocial     : '';
-  const facCuit  = (!f.mismosContacto && f.cuitFacturacion) ? f.cuitFacturacion : '';
+  const instrData  = p.condFiscal && instrMap[p.condFiscal] ? instrMap[p.condFiscal] : null;
+  const facRazon   = (!f.mismosContacto && f.razonSocial)     ? f.razonSocial     : '';
+  const facCuit    = (!f.mismosContacto && f.cuitFacturacion) ? f.cuitFacturacion : '';
   const datosFactRow = (facRazon || facCuit)
     ? '<div style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(0,0,0,0.1);display:flex;gap:20px">'
       + (facRazon ? '<div><div style="font-size:8px;opacity:.7">Razón social</div><div style="font-size:10.5px;font-weight:600">' + facRazon + '</div></div>' : '')
       + (facCuit  ? '<div><div style="font-size:8px;opacity:.7">CUIT</div><div style="font-size:10.5px;font-weight:600">' + facCuit + '</div></div>' : '')
-      + '</div>'
-    : '';
+      + '</div>' : '';
   const facturacionBlock = instrData
     ? '<div style="margin-top:16px;padding:10px 14px;background:' + instrData.bg + ';border:1px solid ' + instrData.border + ';border-radius:6px">'
       + '<div style="font-size:8px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:' + instrData.color + ';margin-bottom:4px">' + instrData.icono + ' Instrucciones de facturación</div>'
       + '<div style="font-size:10.5px;color:' + instrData.color + ';line-height:1.5">' + instrData.texto + '</div>'
-      + datosFactRow
-      + '</div>'
-    : '';
+      + datosFactRow + '</div>' : '';
 
   return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
-    + '<style>'
-    + '* { box-sizing: border-box; margin: 0; padding: 0; }'
-    + 'body { background: #FAF7F2; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; padding: 24px; }'
-    + 'table { border-collapse: collapse; width: 100%; }'
-    + '</style></head><body>'
+    + '<style>* { box-sizing: border-box; margin: 0; padding: 0; } body { background: #FAF7F2; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; padding: 24px; } table { border-collapse: collapse; width: 100%; }</style>'
+    + '</head><body>'
     + '<div style="max-width:720px;margin:0 auto;background:#fff">'
 
-    // ── HEADER ──
+    // HEADER
     + '<div style="padding:20px 36px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e0ddd6">'
-    + '<div>'
-    + '<div style="font-size:22px;font-weight:700;color:' + DARK + ';letter-spacing:-.5px">AGF Messenchymal</div>'
-    + '<div style="font-size:10px;color:#aaa;margin-top:3px;font-style:italic">dermacells.com.ar · Argentina</div>'
-    + '</div>'
-    + '<div style="text-align:right">'
-    + '<div style="font-size:28px;font-weight:300;color:' + DARK + ';line-height:1">Venta #' + p.ventaNum + '</div>'
-    + '<div style="font-size:10px;color:#aaa;margin-top:4px">' + (p.fecha || '') + '</div>'
-    + '</div>'
-    + '</div>'
+    + '<div><div style="font-size:22px;font-weight:700;color:' + DARK + ';letter-spacing:-.5px">AGF Messenchymal</div>'
+    + '<div style="font-size:10px;color:#aaa;margin-top:3px;font-style:italic">dermacells.com.ar · Argentina</div></div>'
+    + '<div style="text-align:right"><div style="font-size:28px;font-weight:300;color:' + DARK + ';line-height:1">Venta #' + p.ventaNum + '</div>'
+    + '<div style="font-size:10px;color:#aaa;margin-top:4px">' + (p.fecha || '') + '</div></div></div>'
 
-    // ── BANDA ──
+    // BANDA
     + '<div style="background:' + DARK + ';padding:7px 36px;display:flex;justify-content:space-between">'
     + '<span style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:' + GREEN + '">Comprobante de compra</span>'
-    + '<span style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:' + GREEN + '">Dermacells S.A.</span>'
-    + '</div>'
+    + '<span style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:' + GREEN + '">Dermacells S.A.</span></div>'
 
     + '<div style="padding:18px 36px 24px">'
 
-    // ── DATOS DEL CLIENTE ──
+    // CLIENTE
     + '<div style="font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e8e8e0">Datos del cliente</div>'
     + '<div style="display:flex;gap:20px;margin-bottom:14px;flex-wrap:wrap">'
     + '<div style="min-width:140px"><div style="font-size:8px;color:#bbb;margin-bottom:2px">Nombre</div><div style="font-size:12px;font-weight:600">' + (c.nombre || '') + ' ' + (c.apellido || '') + '</div></div>'
@@ -322,46 +450,34 @@ function buildReciboHTML(p) {
     + (c.localidad ? '<div><div style="font-size:8px;color:#bbb;margin-bottom:2px">Localidad</div><div style="font-size:12px">' + c.localidad + '</div></div>' : '')
     + '</div>'
     + ((c.mail || c.tel)
-      ? '<div style="display:flex;gap:20px;margin-bottom:14px;flex-wrap:wrap">'
-        + (c.mail ? '<div><div style="font-size:8px;color:#bbb;margin-bottom:2px">Email</div><div style="font-size:11px">' + c.mail + '</div></div>' : '')
-        + (c.tel  ? '<div><div style="font-size:8px;color:#bbb;margin-bottom:2px">Teléfono</div><div style="font-size:11px">' + c.tel + '</div></div>' : '')
-        + '</div>'
-      : '')
+        ? '<div style="display:flex;gap:20px;margin-bottom:14px">'
+          + (c.mail ? '<div><div style="font-size:8px;color:#bbb;margin-bottom:2px">Email</div><div style="font-size:11px">' + c.mail + '</div></div>' : '')
+          + (c.tel  ? '<div><div style="font-size:8px;color:#bbb;margin-bottom:2px">Teléfono</div><div style="font-size:11px">' + c.tel  + '</div></div>' : '')
+          + '</div>' : '')
 
-    // ── TABLA DE CAJAS ──
+    // TABLA DE CAJAS
     + '<div style="font-size:8px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e8e8e0">Detalle</div>'
-    + '<table style="margin-bottom:16px">'
-    + '<thead><tr style="border-bottom:2px solid ' + DARK + '">'
+    + '<table style="margin-bottom:16px"><thead><tr style="border-bottom:2px solid ' + DARK + '">'
     + '<th style="padding:5px 8px;text-align:left;font-size:9px;font-weight:600;color:#bbb;letter-spacing:.1em;text-transform:uppercase">Tipo</th>'
     + '<th style="padding:5px 8px;text-align:left;font-size:9px;font-weight:600;color:#bbb;letter-spacing:.1em;text-transform:uppercase">Contenido</th>'
     + '<th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:600;color:#bbb;letter-spacing:.1em;text-transform:uppercase">Precio</th>'
-    + '</tr></thead>'
-    + '<tbody>' + filas + descGlobalRows + '</tbody>'
-    + '</table>'
+    + '</tr></thead><tbody>' + filas + descGlobalRows + '</tbody></table>'
 
-    // ── TOTAL + DETALLES ──
+    // TOTAL + PAGO
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-top:1px solid #e8e8e0;padding-top:14px">'
-    + '<div>'
-    + '<div style="font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:6px">Detalles de pago</div>'
-    + metodoRow + tcRow + condRow
-    + '</div>'
-    + '<div style="text-align:right">'
-    + '<div style="font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:3px">Total</div>'
+    + '<div><div style="font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:6px">Detalles de pago</div>'
+    + metodoRow + tcRow + condRow + '</div>'
+    + '<div style="text-align:right"><div style="font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:3px">Total</div>'
     + '<div style="font-size:36px;font-weight:600;color:' + DARK + ';line-height:1">u$' + p.totalUSD + '</div>'
-    + totalARSStr
-    + '</div>'
-    + '</div>'
+    + totalARSStr + '</div></div>'
 
     + facturacionBlock
-
-    + '</div>' // /padding
-
-    // ── PIE ──
-    + '<div style="background:#f7f7f5;border-top:1px solid #e8e8e0;padding:10px 36px;display:flex;justify-content:space-between">'
-    + '<span style="font-size:9px;color:#bbb">Documento válido como comprobante de compra</span>'
-    + '<span style="font-size:9px;color:#bbb">AGF Messenchymal · BAAS 2026</span>'
     + '</div>'
 
+    // PIE
+    + '<div style="background:#f7f7f5;border-top:1px solid #e8e8e0;padding:10px 36px;display:flex;justify-content:space-between">'
+    + '<span style="font-size:9px;color:#bbb">Documento válido como comprobante de compra</span>'
+    + '<span style="font-size:9px;color:#bbb">AGF Messenchymal · BAAS 2026</span></div>'
     + '</div></body></html>';
 }
 
@@ -373,12 +489,8 @@ function enviarEmailCliente(p, pdfBlob) {
     c.mail,
     'AGF Messenchymal — Comprobante de compra #' + p.ventaNum,
     buildTextoPlano(p),
-    {
-      htmlBody:    buildEmailHTML(p, false),
-      name:        'AGF Messenchymal Argentina',
-      replyTo:     REPLY_TO,
-      attachments: [pdfBlob]
-    }
+    { htmlBody: buildEmailHTML(p, false), name: 'AGF Messenchymal Argentina',
+      replyTo: REPLY_TO, attachments: [pdfBlob] }
   );
 }
 
@@ -388,52 +500,45 @@ function enviarEmailAdmin(p, pdfBlob) {
     ADMIN_EMAIL,
     '[Venta #' + p.ventaNum + '] ' + c.nombre + ' ' + c.apellido + ' — u$' + p.totalUSD + ' — ' + p.metodoCobro,
     buildTextoPlano(p),
-    {
-      htmlBody:    buildEmailHTML(p, true),
-      name:        'AGF Ventas Congreso',
-      attachments: [pdfBlob]
-    }
+    { htmlBody: buildEmailHTML(p, true), name: 'AGF Ventas Congreso', attachments: [pdfBlob] }
   );
 }
 
 
-// ── TEXTO PLANO (fallback) ───────────────────────────────────────
+// ── TEXTO PLANO ──────────────────────────────────────────────────
 function buildTextoPlano(p) {
   const c = p.cliente || {};
+  const u = calcUnidades(p);
   const lineas = [
     'AGF Messenchymal — Venta #' + p.ventaNum + '  |  Dispositivo ' + (p.dispositivo || '?'),
     'Fecha: ' + p.fecha,
     'Cliente: ' + c.nombre + ' ' + c.apellido + '  |  CUIT: ' + c.cuit,
     '',
     'Detalle:',
-    ...(p.cajas || []).map(cj =>
-      '  Caja ' + cj.caja + ' (' + cj.tipo + '): ' + cj.detalle
-      + (cj.descCaja > 0 ? ' [-' + cj.descCaja + '%]' : '') + ' = u$' + cj.precio
-    ),
+    ...(p.cajas || []).map(function(cj) {
+      return '  Caja ' + cj.caja + ' (' + cj.tipo + '): ' + cj.detalle
+        + (cj.descCaja > 0 ? ' [-' + cj.descCaja + '%]' : '') + ' = u$' + cj.precio;
+    }),
     '',
     p.descuentoGlobal > 0
-      ? '  Descuento global: ' + p.descuentoGlobal + '%  (-u$' + (subtotalCalc(p) - p.totalUSD) + ')' : null,
+      ? '  Descuento global: ' + p.descuentoGlobal + '%' : null,
     'Total: u$' + p.totalUSD + (p.totalARS ? '  /  AR$' + Number(p.totalARS).toLocaleString('es-AR') : ''),
     'Método: ' + p.metodoCobro + '  |  Moneda: ' + p.moneda + (p.tipoCambio ? '  |  TC: $' + p.tipoCambio : ''),
-    p.condFiscal ? 'Cond. fiscal: ' + p.condFiscal : null
+    p.condFiscal ? 'Cond. fiscal: ' + p.condFiscal : null,
+    '',
+    'Unidades: Dermal ' + u.Dermal + ' | Capillary ' + u.Capillary + ' | Pink ' + u.Pink + ' | Biomask ' + u.Biomask
   ].filter(function(l) { return l !== null; }).join('\n');
   return lineas;
 }
 
-function subtotalCalc(p) {
-  return (p.cajas || []).reduce(function(acc, l) {
-    const base = l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA;
-    return acc + Math.round(base * (1 - (l.descCaja || 0) / 100));
-  }, 0);
-}
 
-
-// ── EMAIL HTML (cuerpo del mensaje, sin adjunto) ─────────────────
+// ── EMAIL HTML (cuerpo del mensaje) ─────────────────────────────
 function buildEmailHTML(p, isAdmin) {
   const c     = p.cliente     || {};
   const f     = p.facturacion || {};
   const GREEN = '#1D9E75';
   const DARK  = '#1B3A52';
+  const u     = calcUnidades(p);
 
   const filasHTML = (p.cajas || []).map(function(cj, i) {
     const bg = i % 2 === 0 ? '#f9f9f7' : '#ffffff';
@@ -446,57 +551,50 @@ function buildEmailHTML(p, isAdmin) {
       + '</tr>';
   }).join('');
 
+  const subtotalUSD = (p.cajas || []).reduce(function(acc, l) {
+    return acc + Math.round((l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA) * (1 - (l.descCaja || 0) / 100));
+  }, 0);
   const descRowHTML = p.descuentoGlobal > 0
     ? '<tr><td colspan="2" style="padding:5px 12px;font-size:11px;color:#999;font-style:italic">Descuento global: ' + p.descuentoGlobal + '%</td>'
-      + '<td style="padding:5px 12px;text-align:right;color:#c0392b;font-size:12px">−u$' + (subtotalCalc(p) - p.totalUSD) + '</td></tr>'
+      + '<td style="padding:5px 12px;text-align:right;color:#c0392b;font-size:12px">−u$' + (subtotalUSD - p.totalUSD) + '</td></tr>'
     : '';
 
   const totalDisplay = 'u$' + p.totalUSD
     + (p.totalARS ? '&nbsp;<span style="font-size:14px;color:#666">/ AR$' + Number(p.totalARS).toLocaleString('es-AR') + '</span>' : '');
 
   const tcRowHTML = p.tipoCambio
-    ? '<tr><td style="padding:3px 0;color:#999">Tipo de cambio</td><td style="padding:3px 0">$' + Number(p.tipoCambio).toLocaleString('es-AR') + ' AR$/U$D</td></tr>'
-    : '';
-
+    ? '<tr><td style="padding:3px 0;color:#999">Tipo de cambio</td><td style="padding:3px 0">$' + Number(p.tipoCambio).toLocaleString('es-AR') + ' AR$/U$D</td></tr>' : '';
   const condFiscalHTML = p.condFiscal
     ? (f.mismosContacto
         ? '<tr><td style="padding:3px 0;color:#999">Cond. fiscal</td><td style="padding:3px 0">' + p.condFiscal + '</td></tr>'
-        : '<tr><td style="padding:3px 0;color:#999;vertical-align:top">Facturación</td>'
-          + '<td style="padding:3px 0">' + (f.razonSocial || '') + '<br>CUIT: ' + (f.cuitFacturacion || '') + ' — ' + p.condFiscal + '</td></tr>')
+        : '<tr><td style="padding:3px 0;color:#999;vertical-align:top">Facturación</td><td style="padding:3px 0">' + (f.razonSocial || '') + '<br>CUIT: ' + (f.cuitFacturacion || '') + ' — ' + p.condFiscal + '</td></tr>')
     : '';
-
   const adminBannerHTML = isAdmin
     ? '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 16px;margin-bottom:18px;font-size:13px;color:#856404">'
-      + '<strong>Copia administrador</strong> — Venta registrada ' + p.fecha + ' · Dispositivo&nbsp;' + (p.dispositivo || '?')
-      + '</div>'
-    : '';
+      + '<strong>Copia administrador</strong> — Venta registrada ' + p.fecha + ' · Dispositivo&nbsp;' + (p.dispositivo || '?') + '</div>' : '';
+  const unidadesHTML = '<div style="background:#f0f4f8;border-radius:6px;padding:10px 14px;margin-top:16px;font-size:12px">'
+    + '<strong style="color:' + DARK + '">Unidades vendidas:</strong>&nbsp;&nbsp;'
+    + 'Dermal <b>' + u.Dermal + '</b> &nbsp;|&nbsp; Capillary <b>' + u.Capillary + '</b> &nbsp;|&nbsp; Pink <b>' + u.Pink + '</b> &nbsp;|&nbsp; Biomask <b>' + u.Biomask + '</b>'
+    + '</div>';
 
   return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
     + '<body style="margin:0;padding:0;background:#f5f5f3;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1a1a">'
     + '<div style="max-width:560px;margin:24px auto;background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.1)">'
-
     + '<div style="background:' + DARK + ';padding:20px 28px;display:flex;justify-content:space-between;align-items:center">'
     + '<div><div style="font-size:19px;font-weight:700;color:' + GREEN + '">AGF Messenchymal</div>'
     + '<div style="font-size:11px;color:#9FD4C0;margin-top:2px">dermacells.com.ar · Argentina</div></div>'
-    + '<div style="text-align:right">'
-    + '<div style="font-size:10px;color:#9ab;letter-spacing:.1em;text-transform:uppercase">Comprobante de compra</div>'
+    + '<div style="text-align:right"><div style="font-size:10px;color:#9ab;letter-spacing:.1em;text-transform:uppercase">Comprobante de compra</div>'
     + '<div style="font-size:14px;font-weight:700;color:' + GREEN + ';margin-top:4px">Venta #' + p.ventaNum + '</div>'
-    + '<div style="font-size:10px;color:#9ab;margin-top:2px">BAAS 2026</div>'
-    + '</div></div>'
-
-    + '<div style="padding:24px 28px">'
-    + adminBannerHTML
-
+    + '<div style="font-size:10px;color:#9ab;margin-top:2px">BAAS 2026</div></div></div>'
+    + '<div style="padding:24px 28px">' + adminBannerHTML
     + '<div style="font-size:10px;font-weight:700;letter-spacing:.15em;color:' + DARK + ';text-transform:uppercase;border-bottom:1px solid #e8e8e0;padding-bottom:4px;margin-bottom:10px">Datos del cliente</div>'
     + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">'
     + '<tr><td style="padding:3px 0;color:#999;width:32%">Nombre</td><td style="padding:3px 0">' + (c.nombre || '') + ' ' + (c.apellido || '') + '</td></tr>'
     + '<tr><td style="padding:3px 0;color:#999">CUIT / CUIL</td><td style="padding:3px 0">' + (c.cuit || '') + '</td></tr>'
     + (c.mail      ? '<tr><td style="padding:3px 0;color:#999">Email</td><td style="padding:3px 0">' + c.mail + '</td></tr>' : '')
-    + (c.tel       ? '<tr><td style="padding:3px 0;color:#999">Teléfono</td><td style="padding:3px 0">' + c.tel + '</td></tr>' : '')
+    + (c.tel       ? '<tr><td style="padding:3px 0;color:#999">Teléfono</td><td style="padding:3px 0">' + c.tel  + '</td></tr>' : '')
     + (c.localidad ? '<tr><td style="padding:3px 0;color:#999">Localidad</td><td style="padding:3px 0">' + c.localidad + '</td></tr>' : '')
-    + condFiscalHTML
-    + '</table>'
-
+    + condFiscalHTML + '</table>'
     + '<div style="font-size:10px;font-weight:700;letter-spacing:.15em;color:' + DARK + ';text-transform:uppercase;border-bottom:1px solid #e8e8e0;padding-bottom:4px;margin-bottom:0">Detalle de cajas</div>'
     + '<table style="width:100%;border-collapse:collapse;margin-bottom:20px">'
     + '<thead><tr style="border-bottom:1px solid #e8e8e0">'
@@ -504,25 +602,19 @@ function buildEmailHTML(p, isAdmin) {
     + '<th style="padding:8px 12px;text-align:left;font-weight:500;color:#999;font-size:11px">Contenido</th>'
     + '<th style="padding:8px 12px;text-align:right;font-weight:500;color:#999;font-size:11px">Importe</th>'
     + '</tr></thead><tbody>' + filasHTML + descRowHTML + '</tbody></table>'
-
     + '<div style="font-size:10px;font-weight:700;letter-spacing:.15em;color:' + DARK + ';text-transform:uppercase;border-bottom:1px solid #e8e8e0;padding-bottom:4px;margin-bottom:10px">Condiciones de cobro</div>'
     + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">'
     + '<tr><td style="padding:3px 0;color:#999;width:32%">Método</td><td style="padding:3px 0">' + (p.metodoCobro || '') + '</td></tr>'
     + '<tr><td style="padding:3px 0;color:#999">Moneda</td><td style="padding:3px 0">' + (p.moneda === 'USD' ? 'Dólares americanos' : 'Pesos argentinos') + '</td></tr>'
-    + tcRowHTML
-    + '</table>'
-
+    + tcRowHTML + '</table>'
     + '<div style="border-top:2px solid ' + DARK + ';padding-top:14px;display:flex;justify-content:space-between;align-items:center">'
     + '<span style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:.08em">Total</span>'
-    + '<span style="font-size:22px;font-weight:700;color:' + DARK + '">' + totalDisplay + '</span>'
+    + '<span style="font-size:22px;font-weight:700;color:' + DARK + '">' + totalDisplay + '</span></div>'
+    + unidadesHTML
     + '</div>'
-    + '</div>'
-
     + '<div style="background:#f7f7f5;border-top:1px solid #e8e8e0;padding:12px 28px;display:flex;justify-content:space-between;align-items:center">'
     + '<span style="font-size:11px;color:#bbb">Documento válido como comprobante de compra</span>'
-    + '<span style="font-size:11px;color:#bbb">AGF Messenchymal · 2026</span>'
-    + '</div>'
-
+    + '<span style="font-size:11px;color:#bbb">AGF Messenchymal · 2026</span></div>'
     + '</div></body></html>';
 }
 
@@ -538,6 +630,7 @@ function obtenerOCrearHoja(nombre, fnHeaders) {
   return sheet;
 }
 
+
 // ── TEST MANUAL ──────────────────────────────────────────────────
 function testManual() {
   const payload = {
@@ -545,13 +638,14 @@ function testManual() {
     fecha: '19/4/2026, 10:00:00',
     dispositivo: 'TEST',
     cliente: { nombre:'Ana', apellido:'García', cuit:'20-12345678-0', mail:'', tel:'', localidad:'CABA' },
-    facturacion: { razonSocial:'Ana García', cuitFacturacion:'20-12345678-0', mismosContacto:true },
+    facturacion: { razonSocial:'Empresa SA', cuitFacturacion:'30-99999999-0', mismosContacto:false },
     condFiscal: 'Resp. Inscripto',
     cajas: [
-      { caja:1, tipo:'cerrada',   detalle:'Dermal',           descCaja:0,  precio:750 },
-      { caja:2, tipo:'combinada', detalle:'Dermal, Capillary, Pink, Biomask, Dermal', descCaja:10, precio:810 }
+      { caja:1, tipo:'cerrada',   detalle:'Dermal',                                       descCaja:0,  precio:750 },
+      { caja:2, tipo:'combinada', detalle:'Dermal, Capillary, Pink, Biomask, Dermal',     descCaja:10, precio:810 },
+      { caja:3, tipo:'cerrada',   detalle:'Capillary',                                    descCaja:0,  precio:750 }
     ],
-    totalUSD: 1560,
+    totalUSD: 2310,
     totalARS: null,
     moneda: 'USD',
     tipoCambio: null,
@@ -559,11 +653,16 @@ function testManual() {
     descuentoGlobal: 0
   };
 
-  guardarVenta(payload);
-  actualizarResumen(payload);
+  const u = calcUnidades(payload);
+  Logger.log('Unidades calculadas: ' + JSON.stringify(u));
+  // Esperado: Dermal=11 (5+2+0), Capillary=6 (0+1+5), Pink=1, Biomask=1
 
-  // Probar generación y guardado de PDF en Drive
   const { blob, url } = generarPdfRecibo(payload);
-  Logger.log('PDF generado OK: ' + blob.getName() + ' (' + blob.getBytes().length + ' bytes)');
+  Logger.log('PDF generado: ' + blob.getName() + ' (' + blob.getBytes().length + ' bytes)');
   Logger.log('URL en Drive: ' + url);
+
+  guardarVenta(payload, url);
+  actualizarResumen(payload);
+  obtenerOCrearHoja(SHEET_STOCK, crearHojaStock);
+  Logger.log('testManual completado OK');
 }
