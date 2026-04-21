@@ -4,11 +4,12 @@
 //  constantes de abajo antes de hacer "Implementar > Web app".
 // ═══════════════════════════════════════════════════════════════
 
-const SPREADSHEET_ID = '1K2rELW54yEqQ8pKXHyPeyDqVLygeCQyQJMeH8w4n5m4';
-const ADMIN_EMAIL    = 'alan.haslop@dermacells.com.ar';
-const REPLY_TO       = 'alan.haslop@dermacells.com.ar';
-const SHEET_VENTAS   = 'Ventas';
-const SHEET_RESUMEN  = 'Resumen';
+const SPREADSHEET_ID  = '1K2rELW54yEqQ8pKXHyPeyDqVLygeCQyQJMeH8w4n5m4';
+const ADMIN_EMAIL     = 'alan.haslop@dermacells.com.ar';
+const REPLY_TO        = 'alan.haslop@dermacells.com.ar';
+const SHEET_VENTAS    = 'Ventas';
+const SHEET_RESUMEN   = 'Resumen';
+const PDF_FOLDER_ID   = '1qGxephO8pfFAz41B28f39BZM40YdM2GS'; // Carpeta Drive donde se guardan los recibos
 
 // Precios base (deben coincidir con index.html)
 const P_CERRADA   = 750;
@@ -25,11 +26,11 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     if (!p.ventaNum) throw new Error('Payload inválido: falta ventaNum');
 
-    guardarVenta(p);
-    actualizarResumen(p);
+    // Generar PDF, guardarlo en Drive y obtener URL + blob para email
+    const { blob: pdfBlob, url: pdfUrl } = generarPdfRecibo(p);
 
-    // Generar PDF una sola vez y reutilizarlo en ambos emails
-    const pdfBlob = generarPdfRecibo(p);
+    guardarVenta(p, pdfUrl);    // pasa la URL para el hipervínculo en Sheets
+    actualizarResumen(p);
 
     if (p.cliente && p.cliente.mail) enviarEmailCliente(p, pdfBlob);
     if (ADMIN_EMAIL)                 enviarEmailAdmin(p, pdfBlob);
@@ -51,7 +52,7 @@ function doGet() {
 
 
 // ── GUARDAR VENTA EN HOJA ────────────────────────────────────────
-function guardarVenta(p) {
+function guardarVenta(p, pdfUrl) {
   const sheet = obtenerOCrearHoja(SHEET_VENTAS, crearHeadersVentas);
   const c = p.cliente     || {};
   const f = p.facturacion || {};
@@ -85,8 +86,15 @@ function guardarVenta(p) {
     p.descuentoGlobal || 0,
     p.subtotalUSD    || p.totalUSD || 0,
     p.totalUSD       || 0,
-    p.totalARS       || ''
+    p.totalARS       || '',
+    ''  // col W: placeholder para el hipervínculo al PDF
   ]);
+
+  // Agregar hipervínculo al PDF en la última fila, columna W (23)
+  if (pdfUrl) {
+    const lastRow = sheet.getLastRow();
+    sheet.getRange(lastRow, 23).setFormula(`=HYPERLINK("${pdfUrl}","📄 Ver recibo")`);
+  }
 }
 
 function crearHeadersVentas(sheet) {
@@ -96,7 +104,8 @@ function crearHeadersVentas(sheet) {
     'Cond. Fiscal','Razón Social Fact.','CUIT Facturación',
     'Método cobro','Moneda','Tipo de cambio',
     'Cant. cajas','Detalle cajas',
-    'Desc. global %','Subtotal U$D','Total U$D','Total ARS'
+    'Desc. global %','Subtotal U$D','Total U$D','Total ARS',
+    'Recibo PDF'  // col W
   ];
   sheet.appendRow(headers);
   sheet.setFrozenRows(1);
@@ -148,19 +157,36 @@ function crearHeadersResumen(sheet) {
 
 // ── PDF RECIBO ───────────────────────────────────────────────────
 /**
- * Genera el PDF del recibo (mismo diseño que la administrativa, sin campos de firma).
- * Crea un archivo HTML temporal en Drive, lo convierte a PDF y lo elimina.
+ * Genera el PDF del recibo, lo guarda en PDF_FOLDER_ID y devuelve
+ * { blob, url } donde blob se usa para adjuntar al email y url para
+ * el hipervínculo en la hoja de Sheets.
  */
 function generarPdfRecibo(p) {
-  const html = buildReciboHTML(p);
-  const htmlBlob = Utilities.newBlob(html, 'text/html', 'recibo_temp.html');
-  const driveFile = DriveApp.createFile(htmlBlob);
+  const html     = buildReciboHTML(p);
+  const nombre   = 'Recibo_AGF_Venta' + p.ventaNum + '.pdf';
+
+  // 1. Crear HTML temporal para conversión
+  const htmlBlob  = Utilities.newBlob(html, 'text/html', 'recibo_temp.html');
+  const tempFile  = DriveApp.createFile(htmlBlob);
+
   try {
-    const pdfBlob = driveFile.getAs('application/pdf');
-    pdfBlob.setName('Recibo_AGF_Venta' + p.ventaNum + '.pdf');
-    return pdfBlob;
+    // 2. Convertir a PDF
+    const pdfBlob = tempFile.getAs('application/pdf');
+    pdfBlob.setName(nombre);
+
+    // 3. Guardar PDF permanentemente en la carpeta indicada
+    const folder    = DriveApp.getFolderById(PDF_FOLDER_ID);
+    const savedFile = folder.createFile(pdfBlob);
+    savedFile.setName(nombre);
+
+    // 4. Obtener blob fresco del archivo guardado para adjuntar al email
+    const emailBlob = savedFile.getBlob();
+    emailBlob.setName(nombre);
+
+    return { blob: emailBlob, url: savedFile.getUrl() };
+
   } finally {
-    driveFile.setTrashed(true); // limpiar siempre, incluso si hay error
+    tempFile.setTrashed(true); // borrar solo el HTML temporal
   }
 }
 
@@ -536,7 +562,8 @@ function testManual() {
   guardarVenta(payload);
   actualizarResumen(payload);
 
-  // Probar generación de PDF (no envía mail, solo crea el PDF en Drive temporalmente)
-  const pdf = generarPdfRecibo(payload);
-  Logger.log('PDF generado OK: ' + pdf.getName() + ' (' + pdf.getBytes().length + ' bytes)');
+  // Probar generación y guardado de PDF en Drive
+  const { blob, url } = generarPdfRecibo(payload);
+  Logger.log('PDF generado OK: ' + blob.getName() + ' (' + blob.getBytes().length + ' bytes)');
+  Logger.log('URL en Drive: ' + url);
 }
