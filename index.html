@@ -119,6 +119,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 .modal{background:var(--surface);border-radius:var(--radius);width:100%;max-width:460px;overflow:hidden}
 .mhead{padding:1.1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .mhead h2{font-size:16px;font-weight:600}
+.mhead-center{justify-content:center;text-align:center}
+.mhead-center h2{font-size:22px;font-weight:700;color:var(--green)}
+.print-btn-cta{width:100%;padding:18px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);letter-spacing:.3px}
+.print-btn-cta:hover{background:var(--green-dark);transform:translateY(-1px)}
+.print-btn-cta:active{transform:translateY(0)}
 .mbody{padding:1.25rem}
 .srow{display:flex;align-items:flex-start;gap:12px;padding:.875rem 1rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:#fafaf9;margin-bottom:10px}
 .srow.ok{border-color:var(--green);background:var(--green-light)}
@@ -330,20 +335,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 <!-- MODAL -->
 <div class="modal-overlay" id="overlay">
   <div class="modal">
-    <div class="mhead">
+    <div class="mhead mhead-center">
       <h2 id="modal-title">Procesando...</h2>
-      <span style="font-size:12px;color:var(--text-muted)" id="modal-vnum"></span>
     </div>
     <div class="mbody">
-      <div class="srow" id="row-sheet">
-        <div class="sdot sdot-spin" id="dot-sheet"></div>
-        <div><div class="stitle">Guardando en Google Sheets</div><div class="ssub" id="sub-sheet">Enviando...</div></div>
-      </div>
-      <div class="srow" id="row-mail">
-        <div class="sdot sdot-spin" id="dot-mail"></div>
-        <div><div class="stitle">Enviando mail al cliente</div><div class="ssub" id="sub-mail">Conectando...</div></div>
-      </div>
-      <button class="print-btn" onclick="imprimirRecibo()">Imprimir recibo para la administrativa</button>
+      <button class="print-btn-cta" onclick="imprimirRecibo()">Imprimir Recibo</button>
     </div>
     <div class="mfooter">
       <button class="pri" onclick="nuevaVenta()">Nueva venta</button>
@@ -795,10 +791,7 @@ async function confirmar(){
   // 2. Guardar en IndexedDB
   await saveToQueue(_p);
   // 3. Mostrar éxito
-  document.getElementById("modal-title").textContent="Venta #"+vNum+" confirmada ✓";
-  document.getElementById("modal-vnum").textContent="Venta #"+vNum;
-  setRow("sheet","warn","En cola — sincronizando...");
-  setRow("mail","warn","Se enviará al sincronizar");
+  document.getElementById("modal-title").textContent="Venta #"+vNum+" Confirmada ✓";
   document.getElementById("overlay").className="modal-overlay show";
   updateConnBadge();
   // 3. Intentar sincronizar en background sin bloquear el UI
@@ -1021,9 +1014,11 @@ async function generarPdfBase64(p){
   }
 }
 
-// Botón "Imprimir recibo": renderiza y dispara diálogo de impresión.
+// Botón "Imprimir recibo": renderiza, imprime y pasa a la siguiente venta.
 function imprimirRecibo(){
   prepararReciboDOM(buildPayload());
+  const handler=()=>{ window.removeEventListener('afterprint',handler); nuevaVenta(); };
+  window.addEventListener('afterprint',handler);
   setTimeout(()=>window.print(),200);
 }
 
