@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  AGF Messenchymal — Ventas Congreso · Google Apps Script
+//  AGF Mesenchymal — Ventas Congreso · Google Apps Script
 // ═══════════════════════════════════════════════════════════════
 
 const SPREADSHEET_ID = '1K2rELW54yEqQ8pKXHyPeyDqVLygeCQyQJMeH8w4n5m4';
@@ -458,177 +458,205 @@ function generarPdfRecibo(p) {
   }
 }
 
+// ── FORMATEAR FECHA PARA DOCUMENTOS ─────────────────────────────
+function formatFechaDoc(fechaStr) {
+  var MESES = ['enero','febrero','marzo','abril','mayo','junio',
+               'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var m = (fechaStr || '').match(/^(\d+)\/(\d+)\/(\d+)/);
+  if (!m) return fechaStr || '';
+  return m[1] + ' de ' + MESES[parseInt(m[2], 10) - 1] + ' de ' + m[3];
+}
+
 /**
- * HTML del recibo — diseño v7, layout 100% tablas (Google Docs ignora flexbox/grid).
- * Sin firmas. Todos los ternarios condicionales pre-computados antes del return
- * para evitar SyntaxError "Unexpected token ?" / ":" en Apps Script.
+ * HTML del recibo — diseño clínico v8. Layout 100% tablas (Google Docs ignora flexbox/grid).
+ * Todos los ternarios pre-computados antes del return para evitar SyntaxError en Apps Script.
  */
 function buildReciboHTML(p) {
   var c    = p.cliente     || {};
   var f    = p.facturacion || {};
-  var DARK  = '#1B3A52';
-  var GREEN = '#B8CAD9';
-  var u    = calcUnidades(p);
+  var DARK = '#1B3A52';
 
-  // ── Estilos reutilizables ──
-  var ST   = 'font-size:8px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:' + DARK + ';border-bottom:1px solid #d8d4cc;padding-bottom:4px;margin-bottom:10px;margin-top:16px';
-  var ST0  = 'font-size:8px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:' + DARK + ';border-bottom:1px solid #d8d4cc;padding-bottom:4px;margin-bottom:10px;margin-top:0';
-  var DL   = 'padding:2px 0;color:#bbb;font-size:10px;width:90px';
-  var DV   = 'padding:2px 0;color:#1a1a1a;font-weight:500;font-size:11px';
-  var CL   = 'padding:2px 0;color:#bbb;font-size:10px;width:120px';
-  var CV   = 'padding:2px 0;color:#1a1a1a;font-weight:500;font-size:11px';
+  var SH  = 'font-size:7px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#999;border-bottom:1px solid #eaeae8;padding-bottom:4px;margin-bottom:10px;margin-top:18px';
+  var SH0 = 'font-size:7px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#999;border-bottom:1px solid #eaeae8;padding-bottom:4px;margin-bottom:10px;margin-top:0';
+  var DL  = 'padding:2px 0;color:#aaa;font-size:10px;width:105px';
+  var DV  = 'padding:2px 0;color:#1a1a1a;font-size:11px;font-weight:500';
 
-  // ── Todas las celdas condicionales pre-computadas (evita "+ ?" o "+ :" en return) ──
-  var cuitRow      = c.cuit      ? '<tr><td style="' + DL + '">CUIT/CUIL</td><td style="' + DV + '">' + c.cuit      + '</td></tr>' : '';
-  var emailRow     = c.mail      ? '<tr><td style="' + DL + '">Email</td><td style="' + DV + '">' + c.mail      + '</td></tr>' : '';
-  var telRow       = c.tel       ? '<tr><td style="' + DL + '">Teléfono</td><td style="' + DV + '">' + c.tel       + '</td></tr>' : '';
-  var localRow     = c.localidad ? '<tr><td style="' + DL + '">Localidad</td><td style="' + DV + '">' + c.localidad + '</td></tr>' : '';
-  var condClientRow = p.condFiscal ? '<tr><td style="' + DL + '">Cond. fiscal</td><td style="' + DV + '">' + p.condFiscal + '</td></tr>' : '';
+  var fechaDoc = formatFechaDoc(p.fecha);
 
-  // ── Filas de cajas ──
-  var filas = (p.cajas || []).map(function(l) {
-    var tipo       = l.tipo === 'cerrada' ? 'Cerrada' : 'Combinada';
-    var tagBg      = l.tipo === 'cerrada' ? '#EEF4F8' : '#F5F9FC';
-    var descBadge  = l.descCaja > 0 ? ' <span style="color:#e67e22;font-size:10px;font-style:italic">&#8212; desc. ' + l.descCaja + '%</span>' : '';
-    return '<tr style="border-bottom:1px solid #f5f2ec">'
-      + '<td style="padding:6px 8px;width:80px"><table cellpadding="0" cellspacing="0"><tr>'
-      + '<td bgcolor="' + tagBg + '" style="padding:2px 7px;font-size:9px;font-weight:500;color:' + DARK + '">' + tipo + '</td>'
-      + '</tr></table></td>'
-      + '<td style="padding:6px 8px;color:#777;font-size:10.5px">' + l.detalle + descBadge + '</td>'
-      + '<td style="padding:6px 8px;text-align:right;font-weight:600;color:' + DARK + ';font-size:11px;white-space:nowrap">u$' + l.precio + '</td>'
+  // ── Filas de cliente ──
+  var cuitRow  = c.cuit      ? '<tr><td style="' + DL + '">CUIT/CUIL</td><td style="' + DV + '">' + c.cuit      + '</td></tr>' : '';
+  var emailRow = c.mail      ? '<tr><td style="' + DL + '">Email</td><td style="' + DV + '">' + c.mail      + '</td></tr>' : '';
+  var telRow   = c.tel       ? '<tr><td style="' + DL + '">Tel\u00e9fono</td><td style="' + DV + '">' + c.tel       + '</td></tr>' : '';
+  var locRow   = c.localidad ? '<tr><td style="' + DL + '">Localidad</td><td style="' + DV + '">' + c.localidad + '</td></tr>' : '';
+
+  // ── Filas de detalle (precio de lista, sin descuentos inline) ──
+  var filasDetalle = (p.cajas || []).map(function(l) {
+    var tipo    = l.tipo === 'cerrada' ? 'Cerrada' : 'Combinada';
+    var listaPx = l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA;
+    return '<tr style="border-bottom:1px solid #f2f2f0">'
+      + '<td style="padding:6px 0;font-size:10px;color:#555;width:100px">Caja ' + l.caja + ' \u2014 ' + tipo + '</td>'
+      + '<td style="padding:6px 8px;font-size:10px;color:#777">' + l.detalle + '</td>'
+      + '<td style="padding:6px 0;text-align:right;font-size:10px;color:#888;white-space:nowrap">u$ ' + listaPx + '</td>'
       + '</tr>';
   }).join('');
 
-  // ── Subtotal + descuento global ──
-  var subtotalUSD = (p.cajas || []).reduce(function(acc, l) {
-    return acc + Math.round((l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA) * (1 - (l.descCaja || 0) / 100));
+  // ── Cálculo de descuentos ──
+  var precioLista = (p.cajas || []).reduce(function(acc, l) {
+    return acc + (l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA);
   }, 0);
-  var ahorroUSD = (p.descuentoGlobal > 0 && p.descuentoGlobal < 100) ? subtotalUSD - p.totalUSD : 0;
-  var subtotalRows = p.descuentoGlobal > 0
-    ? '<tr><td colspan="2" style="padding:4px 8px;font-size:10px;color:#999">Subtotal</td><td style="padding:4px 8px;text-align:right;font-size:10px;color:#999">u$' + subtotalUSD + '</td></tr>'
-      + '<tr><td colspan="2" style="padding:4px 8px;font-size:10px;color:#e67e22">Desc. general ' + p.descuentoGlobal + '%</td><td style="padding:4px 8px;text-align:right;font-size:10px;color:#e67e22;font-weight:600">' + (ahorroUSD > 0 ? '&#8722; u$' + ahorroUSD : '') + '</td></tr>'
-    : '';
+  var totalDescuentos = precioLista - (p.totalUSD || 0);
+  var hayDescuentos   = totalDescuentos > 0;
 
-  // ── Filas de cobro ──
-  var metodoRow   = p.metodoCobro  ? '<tr><td style="' + CL + '">Método de pago</td><td style="' + CV + '">' + p.metodoCobro + '</td></tr>' : '';
-  var tcCobroRow  = p.tipoCambio   ? '<tr><td style="' + CL + '">Tipo de cambio</td><td style="' + CV + '">AR$' + Number(p.tipoCambio).toLocaleString('es-AR') + ' / U$D</td></tr>' : '';
-  var descCobroRow = p.descuentoGlobal > 0 ? '<tr><td style="' + CL + '">Descuento general</td><td style="padding:2px 0;color:#e67e22;font-weight:600;font-size:11px">' + p.descuentoGlobal + '% &#8212; u$' + ahorroUSD + ' de ahorro</td></tr>' : '';
-  var totalARSStr = p.totalARS     ? '<div style="font-size:11px;color:#aaa;margin-top:3px">AR$ ' + Number(p.totalARS).toLocaleString('es-AR') + '</div>' : '';
+  // Sub-líneas por fuente de descuento (grisadas)
+  var subDescRows = '';
+  if (hayDescuentos) {
+    (p.cajas || []).forEach(function(l) {
+      if (l.descCaja > 0) {
+        var listaPx = l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA;
+        var monto   = Math.round(listaPx * l.descCaja / 100);
+        var tipo    = l.tipo === 'cerrada' ? 'Cerrada' : 'Combinada';
+        subDescRows += '<tr>'
+          + '<td style="padding:2px 0 2px 12px;font-size:9px;color:#bbb">Caja ' + l.caja + ' \u2014 ' + tipo + '</td>'
+          + '<td style="padding:2px 0;text-align:right;font-size:9px;color:#bbb;white-space:nowrap">\u2212' + l.descCaja + '%</td>'
+          + '<td style="padding:2px 0 2px 10px;text-align:right;font-size:9px;color:#bbb;white-space:nowrap">\u2212u$ ' + monto + '</td>'
+          + '</tr>';
+      }
+    });
+    if (p.descuentoGlobal > 0) {
+      var subtotalDescCaja = (p.cajas || []).reduce(function(acc, l) {
+        return acc + Math.round((l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA) * (1 - (l.descCaja || 0) / 100));
+      }, 0);
+      var descGlobalMonto = subtotalDescCaja - (p.totalUSD || 0);
+      subDescRows += '<tr>'
+        + '<td style="padding:2px 0 2px 12px;font-size:9px;color:#bbb">Desc. global</td>'
+        + '<td style="padding:2px 0;text-align:right;font-size:9px;color:#bbb;white-space:nowrap">\u2212' + p.descuentoGlobal + '%</td>'
+        + '<td style="padding:2px 0 2px 10px;text-align:right;font-size:9px;color:#bbb;white-space:nowrap">\u2212u$ ' + descGlobalMonto + '</td>'
+        + '</tr>';
+    }
+  }
 
-  // ── Bloque de facturación ──
-  var instrMap = {
-    'Resp. Inscripto': { bg:'#eff6ff', border:'#93c5fd', color:'#1e3a8a', icono:'&#9650;', texto:'Se emitirá Factura A. Verificar CUIT y razón social con administración antes de procesar.' },
-    'Monotributista':  { bg:'#f0fdf4', border:'#86efac', color:'#14532d', icono:'&#9679;', texto:'Se emitirá Factura B. Datos registrados para procesamiento posterior por administración.' },
-    'Cons. Final':     { bg:'#f0fdf4', border:'#86efac', color:'#14532d', icono:'&#9679;', texto:'Se emitirá Factura B (Consumidor Final). Sin CUIT específico requerido.' }
-  };
-  var instrData = p.condFiscal && instrMap[p.condFiscal] ? instrMap[p.condFiscal] : null;
-  var facRazon  = (!f.mismosContacto && f.razonSocial)     ? f.razonSocial     : '';
-  var facCuit   = (!f.mismosContacto && f.cuitFacturacion) ? f.cuitFacturacion : '';
-  var facRazonTd = facRazon ? '<td style="padding-right:20px"><div style="font-size:8px;opacity:.7">Razón social</div><div style="font-size:10.5px;font-weight:600">' + facRazon + '</div></td>' : '';
-  var facCuitTd  = facCuit  ? '<td><div style="font-size:8px;opacity:.7">CUIT</div><div style="font-size:10.5px;font-weight:600">' + facCuit  + '</div></td>' : '';
-  var datosFactTr = (facRazon || facCuit) ? '<tr><td colspan="2" style="padding-top:7px;border-top:1px solid rgba(0,0,0,0.1)"><table cellpadding="0" cellspacing="0"><tr>' + facRazonTd + facCuitTd + '</tr></table></td></tr>' : '';
-  var facturacionBlock = instrData
-    ? '<table cellpadding="0" cellspacing="0" width="100%" style="margin-top:16px;border:1px solid ' + instrData.border + '"><tr>'
-      + '<td bgcolor="' + instrData.bg + '" style="padding:10px 14px">'
+  // Fila resumen de descuentos (precio lista + línea principal + sub-líneas)
+  var resumenRows = '';
+  if (hayDescuentos) {
+    var pctRaw = precioLista > 0 ? totalDescuentos / precioLista * 100 : 0;
+    var pctFmt = (pctRaw % 1 === 0 ? pctRaw.toFixed(0) : pctRaw.toFixed(1)).replace('.', ',') + '%';
+    resumenRows = '<tr><td colspan="3" style="padding-top:10px">'
       + '<table cellpadding="0" cellspacing="0" width="100%">'
-      + '<tr><td style="font-size:8px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:' + instrData.color + ';padding-bottom:4px">' + instrData.icono + ' Instrucciones de facturación</td></tr>'
-      + '<tr><td style="font-size:10.5px;color:' + instrData.color + ';line-height:1.5">' + instrData.texto + '</td></tr>'
-      + datosFactTr
-      + '</table></td></tr></table>'
+      + '<tr>'
+      +   '<td style="padding:3px 0;font-size:10px;color:#aaa">Precio de lista</td>'
+      +   '<td style="padding:3px 0;font-size:10px;color:#aaa;text-align:right;white-space:nowrap"></td>'
+      +   '<td style="padding:3px 0 3px 10px;text-align:right;font-size:10px;color:#aaa;white-space:nowrap">u$ ' + precioLista + '</td>'
+      + '</tr>'
+      + '<tr>'
+      +   '<td style="padding:3px 0;font-size:10px;color:#1a1a1a">Descuentos aplicados</td>'
+      +   '<td style="padding:3px 0;text-align:right;font-size:10px;color:#1a1a1a;white-space:nowrap">\u2212' + pctFmt + '</td>'
+      +   '<td style="padding:3px 0 3px 10px;text-align:right;font-size:10px;color:#1a1a1a;white-space:nowrap">\u2212u$ ' + totalDescuentos + '</td>'
+      + '</tr>'
+      + subDescRows
+      + '</table>'
+      + '</td></tr>';
+  }
+
+  // ── Total ARS ──
+  var totalARSStr = p.totalARS
+    ? '<div style="font-size:10px;color:#aaa;margin-top:3px">AR$ ' + Number(p.totalARS).toLocaleString('es-AR') + '</div>'
     : '';
+
+  // ── Cobro ──
+  var tcRow = p.tipoCambio
+    ? '<tr><td style="' + DL + '">Tipo de cambio</td><td style="' + DV + '">AR$ ' + Number(p.tipoCambio).toLocaleString('es-AR') + ' / U$D</td></tr>'
+    : '';
+
+  // ── Facturación (solo si aplica; mismosContacto usa datos del cliente) ──
+  var facturacionBlock = '';
+  if (p.condFiscal) {
+    var facRazon, facCuit;
+    if (f.mismosContacto) {
+      facRazon = ((c.nombre || '') + ' ' + (c.apellido || '')).trim();
+      facCuit  = c.cuit || '';
+    } else {
+      facRazon = f.razonSocial     || '';
+      facCuit  = f.cuitFacturacion || '';
+    }
+    var facRazonRow = facRazon ? '<tr><td style="' + DL + '">Raz\u00f3n social</td><td style="' + DV + '">' + facRazon + '</td></tr>' : '';
+    var facCuitRow  = facCuit  ? '<tr><td style="' + DL + '">CUIT</td><td style="' + DV + '">' + facCuit + '</td></tr>'               : '';
+    var condRow     = '<tr><td style="' + DL + '">Cond. fiscal</td><td style="' + DV + '">' + p.condFiscal + '</td></tr>';
+    facturacionBlock = '<div style="' + SH + '">Facturaci\u00f3n</div>'
+      + '<table cellpadding="0" cellspacing="0">'
+      + facRazonRow + facCuitRow + condRow
+      + '</table>';
+  }
 
   // ════ CONSTRUCCIÓN DEL HTML ════
   return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
-    + '<style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#1a1a1a;background:#e8e6e0;padding:24px}table{border-collapse:collapse}td,th{vertical-align:top}</style>'
+    + '<style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#1a1a1a;background:#ececea;padding:24px}table{border-collapse:collapse}td,th{vertical-align:top}</style>'
     + '</head><body>'
-    + '<table align="center" cellpadding="0" cellspacing="0" width="680" bgcolor="#ffffff">'
+    + '<table align="center" cellpadding="0" cellspacing="0" width="640" bgcolor="#ffffff">'
 
     // ── HEADER ──
-    + '<tr><td style="padding:20px 36px 16px;border-bottom:1px solid #e0ddd6">'
+    + '<tr><td style="padding:22px 36px 18px;border-bottom:1px solid #eaeae8">'
     +   '<table cellpadding="0" cellspacing="0" width="100%"><tr>'
-    +     '<td valign="middle"><div style="font-size:22px;font-weight:700;color:' + DARK + ';letter-spacing:-.5px">AGF Messenchymal</div>'
-    +       '<div style="font-size:10px;color:#aaa;margin-top:3px;font-style:italic">dermacells.com.ar &middot; Argentina</div></td>'
-    +     '<td valign="middle" align="right"><div style="font-size:28px;font-weight:300;color:' + DARK + ';line-height:1">Venta #' + p.ventaNum + '</div>'
-    +       '<div style="font-size:10px;color:#aaa;margin-top:4px">' + (p.fecha || '') + '</div></td>'
-    +   '</tr></table>'
-    + '</td></tr>'
-
-    // ── BANDA ──
-    + '<tr><td bgcolor="' + DARK + '" style="padding:7px 36px">'
-    +   '<table cellpadding="0" cellspacing="0" width="100%"><tr>'
-    +     '<td style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:' + GREEN + '">Comprobante de compra</td>'
-    +     '<td align="right" style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:' + GREEN + '">Dermacells S.A.</td>'
+    +     '<td valign="top">'
+    +       '<div style="font-family:Georgia,serif;font-size:19px;font-weight:700;color:' + DARK + ';letter-spacing:-.2px">AGF Mesenchymal</div>'
+    +       '<div style="font-size:9px;color:#aaa;font-style:italic;margin-top:2px">Argentina</div>'
+    +       '<div style="font-size:7px;color:#ccc;letter-spacing:.18em;text-transform:uppercase;margin-top:5px">BAAS 2026</div>'
+    +     '</td>'
+    +     '<td valign="top" align="right">'
+    +       '<div style="font-size:7px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:4px">Comprobante de compra</div>'
+    +       '<div style="font-family:Georgia,serif;font-size:20px;font-weight:400;color:' + DARK + ';line-height:1">N.\u00ba ' + p.ventaNum + '</div>'
+    +       '<div style="font-size:9px;color:#bbb;margin-top:4px">' + fechaDoc + '</div>'
+    +     '</td>'
     +   '</tr></table>'
     + '</td></tr>'
 
     // ── CONTENIDO ──
-    + '<tr><td style="padding:18px 36px 24px">'
+    + '<tr><td style="padding:20px 36px 28px">'
 
     //   DATOS DEL CLIENTE
-    +   '<div style="' + ST0 + '">Datos del cliente</div>'
-    +   '<table cellpadding="0" cellspacing="0" style="margin-bottom:16px">'
-    +     '<tr><td style="' + DL + '">Nombre</td><td style="' + DV + '">' + (c.nombre || '') + ' ' + (c.apellido || '') + '</td></tr>'
-    +     cuitRow + emailRow + telRow + localRow + condClientRow
-    +   '</table>'
+    + '<div style="' + SH0 + '">Datos del cliente</div>'
+    + '<table cellpadding="0" cellspacing="0" style="margin-bottom:0">'
+    + '<tr><td style="' + DL + '">Nombre</td><td style="' + DV + '">' + (c.nombre || '') + ' ' + (c.apellido || '') + '</td></tr>'
+    + cuitRow + emailRow + telRow + locRow
+    + '</table>'
 
-    //   PRODUCTOS ADQUIRIDOS
-    +   '<div style="' + ST + '">Productos adquiridos</div>'
-    +   '<table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:16px;border:1px solid #f0ede6"><tr>'
-    +     '<td align="center" style="padding:8px;border-right:1px solid #f0ede6">'
-    +       '<div style="font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#bbb;margin-bottom:4px">Dermal</div>'
-    +       '<div style="font-size:26px;font-weight:600;color:' + DARK + ';line-height:1">' + u.Dermal + '</div>'
-    +       '<div style="font-size:7px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;margin-top:2px">unidades</div>'
-    +     '</td>'
-    +     '<td align="center" style="padding:8px;border-right:1px solid #f0ede6">'
-    +       '<div style="font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#bbb;margin-bottom:4px">Capillary</div>'
-    +       '<div style="font-size:26px;font-weight:600;color:' + DARK + ';line-height:1">' + u.Capillary + '</div>'
-    +       '<div style="font-size:7px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;margin-top:2px">unidades</div>'
-    +     '</td>'
-    +     '<td align="center" style="padding:8px;border-right:1px solid #f0ede6">'
-    +       '<div style="font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#bbb;margin-bottom:4px">Pink</div>'
-    +       '<div style="font-size:26px;font-weight:600;color:' + DARK + ';line-height:1">' + u.Pink + '</div>'
-    +       '<div style="font-size:7px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;margin-top:2px">unidades</div>'
-    +     '</td>'
-    +     '<td align="center" style="padding:8px">'
-    +       '<div style="font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#bbb;margin-bottom:4px">Biomask</div>'
-    +       '<div style="font-size:26px;font-weight:600;color:' + DARK + ';line-height:1">' + u.Biomask + '</div>'
-    +       '<div style="font-size:7px;color:#bbb;letter-spacing:.1em;text-transform:uppercase;margin-top:2px">unidades</div>'
-    +     '</td>'
-    +   '</tr></table>'
+    //   DETALLE
+    + '<div style="' + SH + '">Detalle</div>'
+    + '<table cellpadding="0" cellspacing="0" width="100%">'
+    + '<thead><tr style="border-bottom:1px solid #eaeae8">'
+    + '<th style="padding:4px 0;text-align:left;font-size:7px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#bbb;width:100px">Caja</th>'
+    + '<th style="padding:4px 8px;text-align:left;font-size:7px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#bbb">Contenido</th>'
+    + '<th style="padding:4px 0;text-align:right;font-size:7px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#bbb;white-space:nowrap">Lista</th>'
+    + '</tr></thead>'
+    + '<tbody>' + filasDetalle + resumenRows + '</tbody>'
+    + '</table>'
 
-    //   DETALLE DE CAJAS
-    +   '<div style="' + ST + '">Detalle de cajas</div>'
-    +   '<table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:0">'
-    +   '<thead><tr style="border-bottom:1px solid #e0ddd6">'
-    +     '<th style="padding:5px 8px;text-align:left;font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#bbb;width:80px">Tipo</th>'
-    +     '<th style="padding:5px 8px;text-align:left;font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#bbb">Contenido</th>'
-    +     '<th style="padding:5px 8px;text-align:right;font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#bbb;white-space:nowrap">Precio</th>'
-    +   '</tr></thead>'
-    +   '<tbody>' + filas + subtotalRows + '</tbody>'
-    +   '</table>'
+    //   TOTAL
+    + '<table cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px;padding-top:12px;border-top:1px solid #eaeae8"><tr>'
+    + '<td style="font-size:7px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;padding-top:6px">Total</td>'
+    + '<td align="right">'
+    +   '<div style="font-family:Georgia,serif;font-size:24px;font-weight:700;color:' + DARK + ';line-height:1">u$ ' + p.totalUSD + '</div>'
+    +   totalARSStr
+    + '</td>'
+    + '</tr></table>'
 
-    //   COBRO / TOTAL
-    +   '<table cellpadding="0" cellspacing="0" width="100%" style="margin-top:16px;padding-top:12px;border-top:2px solid ' + DARK + '"><tr>'
-    +     '<td valign="top">'
-    +       '<table cellpadding="0" cellspacing="0">' + metodoRow + tcCobroRow + descCobroRow + '</table>'
-    +     '</td>'
-    +     '<td valign="top" align="right" style="white-space:nowrap">'
-    +       '<div style="font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:#bbb;margin-bottom:3px">Total</div>'
-    +       '<div style="font-size:36px;font-weight:600;color:' + DARK + ';line-height:1">u$' + p.totalUSD + '</div>'
-    +       totalARSStr
-    +     '</td>'
-    +   '</tr></table>'
+    //   CONDICIONES DE COBRO
+    + '<div style="' + SH + '">Condiciones de cobro</div>'
+    + '<table cellpadding="0" cellspacing="0">'
+    + '<tr><td style="' + DL + '">M\u00e9todo</td><td style="' + DV + '">' + (p.metodoCobro || '') + '</td></tr>'
+    + '<tr><td style="' + DL + '">Moneda</td><td style="' + DV + '">' + (p.moneda === 'USD' ? 'D\u00f3lares americanos' : 'Pesos argentinos') + '</td></tr>'
+    + tcRow
+    + '</table>'
 
     //   FACTURACIÓN
-    +   facturacionBlock
+    + facturacionBlock
 
     + '</td></tr>'
 
     // ── PIE ──
-    + '<tr bgcolor="#f7f6f2"><td style="padding:8px 36px;border-top:1px solid #e8e5de">'
+    + '<tr><td style="padding:10px 36px;border-top:1px solid #eaeae8">'
     +   '<table cellpadding="0" cellspacing="0" width="100%"><tr>'
-    +     '<td style="font-size:9px;color:#ccc">Documento válido como comprobante de compra</td>'
-    +     '<td align="right" style="font-size:9px;color:#ccc">AGF Messenchymal &middot; BAAS 2026</td>'
+    +     '<td style="font-size:8px;color:#ccc">Documento v\u00e1lido como comprobante de compra</td>'
+    +     '<td align="right" style="font-size:8px;color:#ccc">AGF Mesenchymal Argentina &middot; BAAS 2026</td>'
     +   '</tr></table>'
     + '</td></tr>'
 
@@ -642,9 +670,9 @@ function enviarEmailCliente(p, pdfBlob) {
   const c = p.cliente;
   GmailApp.sendEmail(
     c.mail,
-    'AGF Messenchymal — Comprobante de compra #' + p.ventaNum,
+    'Gracias por elegirnos \uD83D\uDC99 Comprobante N.\u00ba ' + p.ventaNum + ' \u2014 AGF Mesenchymal Argentina',
     buildTextoPlano(p),
-    { htmlBody: buildEmailHTML(p, false), name: 'AGF Messenchymal Argentina',
+    { htmlBody: buildEmailHTML(p, false), name: 'AGF Mesenchymal Argentina',
       replyTo: REPLY_TO, attachments: [pdfBlob] }
   );
 }
@@ -662,115 +690,97 @@ function enviarEmailAdmin(p, pdfBlob) {
 
 // ── TEXTO PLANO ──────────────────────────────────────────────────
 function buildTextoPlano(p) {
-  const c = p.cliente || {};
-  const u = calcUnidades(p);
-  const lineas = [
-    'AGF Messenchymal — Venta #' + p.ventaNum + '  |  Dispositivo ' + (p.dispositivo || '?'),
-    'Fecha: ' + p.fecha,
-    'Cliente: ' + c.nombre + ' ' + c.apellido + '  |  CUIT: ' + c.cuit,
+  var c        = p.cliente || {};
+  var saludo   = c.nombre ? c.nombre + ',' : 'Estimado cliente,';
+  var contacto = p.vendedor
+    ? 'Ante cualquier inquietud, no dudes en contactarte con ' + p.vendedor + ' o con Alan J. Haslop.'
+    : 'Ante cualquier inquietud, no dudes en contactarte con Alan J. Haslop.';
+  return [
+    saludo + ' gracias por confiar en nosotros.',
     '',
-    'Detalle:',
-    ...(p.cajas || []).map(function(cj) {
-      return '  Caja ' + cj.caja + ' (' + cj.tipo + '): ' + cj.detalle
-        + (cj.descCaja > 0 ? ' [-' + cj.descCaja + '%]' : '') + ' = u$' + cj.precio;
-    }),
+    'Adjunto el comprobante de tu compra. Tus productos ya estan reservados en el stand B28 al final de la expo. Cuando puedas, te esperamos para que retires tu pedido.',
     '',
-    p.descuentoGlobal > 0
-      ? '  Descuento global: ' + p.descuentoGlobal + '%' : null,
-    'Total: u$' + p.totalUSD + (p.totalARS ? '  /  AR$' + Number(p.totalARS).toLocaleString('es-AR') : ''),
-    'Método: ' + p.metodoCobro + '  |  Moneda: ' + p.moneda + (p.tipoCambio ? '  |  TC: $' + p.tipoCambio : ''),
-    p.condFiscal ? 'Cond. fiscal: ' + p.condFiscal : null,
+    contacto,
     '',
-    'Unidades: Dermal ' + u.Dermal + ' | Capillary ' + u.Capillary + ' | Pink ' + u.Pink + ' | Biomask ' + u.Biomask
-  ].filter(function(l) { return l !== null; }).join('\n');
-  return lineas;
+    '--',
+    'Alan J. Haslop',
+    'Director Ejecutivo',
+    'AGF Mesenchymal Argentina',
+    '',
+    '---',
+    'Venta #' + p.ventaNum + ' | ' + (p.fecha || ''),
+    'Total: u$' + p.totalUSD + (p.totalARS ? ' / AR$' + Number(p.totalARS).toLocaleString('es-AR') : ''),
+    'Metodo: ' + (p.metodoCobro || '') + ' | Moneda: ' + (p.moneda || 'USD')
+  ].join('\n');
 }
 
 
 // ── EMAIL HTML (cuerpo del mensaje) ─────────────────────────────
 function buildEmailHTML(p, isAdmin) {
-  const c     = p.cliente     || {};
-  const f     = p.facturacion || {};
-  const GREEN = '#B8CAD9';
-  const DARK  = '#1B3A52';
-  const u     = calcUnidades(p);
+  var c    = p.cliente || {};
+  var DARK = '#1B3A52';
 
-  const filasHTML = (p.cajas || []).map(function(cj, i) {
-    const bg = i % 2 === 0 ? '#f9f9f7' : '#ffffff';
-    const descBadge = cj.descCaja > 0
-      ? ' <span style="color:#e67e22;font-size:11px">[-' + cj.descCaja + '%]</span>' : '';
-    return '<tr style="background:' + bg + '">'
-      + '<td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">Caja ' + cj.caja + ' — ' + (cj.tipo === 'cerrada' ? 'Cerrada' : 'Combinada') + '</td>'
-      + '<td style="padding:8px 12px;border-bottom:1px solid #eee;color:#666;font-size:12px">' + cj.detalle + descBadge + '</td>'
-      + '<td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;font-size:13px">u$' + cj.precio + '</td>'
-      + '</tr>';
-  }).join('');
+  var saludo   = c.nombre ? c.nombre + ',' : 'Estimado cliente,';
+  var contacto = p.vendedor
+    ? 'Ante cualquier inquietud, no dudes en contactarte con <strong>' + p.vendedor + '</strong> o conmigo.'
+    : 'Ante cualquier inquietud, no dudes en contactarte conmigo.';
 
-  const subtotalUSD = (p.cajas || []).reduce(function(acc, l) {
-    return acc + Math.round((l.tipo === 'cerrada' ? P_CERRADA : P_COMBINADA) * (1 - (l.descCaja || 0) / 100));
-  }, 0);
-  const descRowHTML = p.descuentoGlobal > 0
-    ? '<tr><td colspan="2" style="padding:5px 12px;font-size:11px;color:#999;font-style:italic">Descuento global: ' + p.descuentoGlobal + '%</td>'
-      + '<td style="padding:5px 12px;text-align:right;color:#c0392b;font-size:12px">−u$' + (subtotalUSD - p.totalUSD) + '</td></tr>'
+  var adminBanner = isAdmin
+    ? '<tr><td style="padding:0 36px 16px">'
+    +   '<table cellpadding="0" cellspacing="0" width="100%"><tr>'
+    +   '<td style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:10px 14px;font-size:12px;color:#856404;font-family:Arial,Helvetica,sans-serif">'
+    +   '<strong>Copia administrador</strong> &mdash; Venta #' + p.ventaNum + ' &middot; ' + (p.dispositivo || '?') + ' &middot; ' + (p.fecha || '')
+    +   '</td></tr></table>'
+    +   '</td></tr>'
     : '';
 
-  const totalDisplay = 'u$' + p.totalUSD
-    + (p.totalARS ? '&nbsp;<span style="font-size:14px;color:#666">/ AR$' + Number(p.totalARS).toLocaleString('es-AR') + '</span>' : '');
+  return '<!DOCTYPE html><html lang="es"><head>'
+    + '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '</head>'
+    + '<body style="margin:0;padding:0;background:#f5f5f3">'
+    + '<table cellpadding="0" cellspacing="0" width="100%"><tr>'
+    + '<td align="center" style="padding:32px 16px">'
+    + '<table cellpadding="0" cellspacing="0" width="520">'
+    + '<tr><td style="background:#ffffff;border-radius:2px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.08)">'
+    + '<table cellpadding="0" cellspacing="0" width="100%">'
 
-  const tcRowHTML = p.tipoCambio
-    ? '<tr><td style="padding:3px 0;color:#999">Tipo de cambio</td><td style="padding:3px 0">$' + Number(p.tipoCambio).toLocaleString('es-AR') + ' AR$/U$D</td></tr>' : '';
-  const condFiscalHTML = p.condFiscal
-    ? (f.mismosContacto
-        ? '<tr><td style="padding:3px 0;color:#999">Cond. fiscal</td><td style="padding:3px 0">' + p.condFiscal + '</td></tr>'
-        : '<tr><td style="padding:3px 0;color:#999;vertical-align:top">Facturación</td><td style="padding:3px 0">' + (f.razonSocial || '') + '<br>CUIT: ' + (f.cuitFacturacion || '') + ' — ' + p.condFiscal + '</td></tr>')
-    : '';
-  const adminBannerHTML = isAdmin
-    ? '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 16px;margin-bottom:18px;font-size:13px;color:#856404">'
-      + '<strong>Copia administrador</strong> — Venta registrada ' + p.fecha + ' · Dispositivo&nbsp;' + (p.dispositivo || '?') + '</div>' : '';
-  const unidadesHTML = '<div style="background:#f0f4f8;border-radius:6px;padding:10px 14px;margin-top:16px;font-size:12px">'
-    + '<strong style="color:' + DARK + '">Unidades vendidas:</strong>&nbsp;&nbsp;'
-    + 'Dermal <b>' + u.Dermal + '</b> &nbsp;|&nbsp; Capillary <b>' + u.Capillary + '</b> &nbsp;|&nbsp; Pink <b>' + u.Pink + '</b> &nbsp;|&nbsp; Biomask <b>' + u.Biomask + '</b>'
-    + '</div>';
+    // Línea de acento
+    + '<tr><td style="height:3px;background:' + DARK + '"></td></tr>'
 
-  return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
-    + '<body style="margin:0;padding:0;background:#f5f5f3;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1a1a">'
-    + '<div style="max-width:560px;margin:24px auto;background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.1)">'
-    + '<div style="background:' + DARK + ';padding:20px 28px;display:flex;justify-content:space-between;align-items:center">'
-    + '<div><div style="font-size:19px;font-weight:700;color:' + GREEN + '">AGF Messenchymal</div>'
-    + '<div style="font-size:11px;color:#B8CAD9;margin-top:2px">dermacells.com.ar · Argentina</div></div>'
-    + '<div style="text-align:right"><div style="font-size:10px;color:#9ab;letter-spacing:.1em;text-transform:uppercase">Comprobante de compra</div>'
-    + '<div style="font-size:14px;font-weight:700;color:' + GREEN + ';margin-top:4px">Venta #' + p.ventaNum + '</div>'
-    + '<div style="font-size:10px;color:#9ab;margin-top:2px">BAAS 2026</div></div></div>'
-    + '<div style="padding:24px 28px">' + adminBannerHTML
-    + '<div style="font-size:10px;font-weight:700;letter-spacing:.15em;color:' + DARK + ';text-transform:uppercase;border-bottom:1px solid #e8e8e0;padding-bottom:4px;margin-bottom:10px">Datos del cliente</div>'
-    + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">'
-    + '<tr><td style="padding:3px 0;color:#999;width:32%">Nombre</td><td style="padding:3px 0">' + (c.nombre || '') + ' ' + (c.apellido || '') + '</td></tr>'
-    + '<tr><td style="padding:3px 0;color:#999">CUIT / CUIL</td><td style="padding:3px 0">' + (c.cuit || '') + '</td></tr>'
-    + (c.mail      ? '<tr><td style="padding:3px 0;color:#999">Email</td><td style="padding:3px 0">' + c.mail + '</td></tr>' : '')
-    + (c.tel       ? '<tr><td style="padding:3px 0;color:#999">Teléfono</td><td style="padding:3px 0">' + c.tel  + '</td></tr>' : '')
-    + (c.localidad ? '<tr><td style="padding:3px 0;color:#999">Localidad</td><td style="padding:3px 0">' + c.localidad + '</td></tr>' : '')
-    + condFiscalHTML + '</table>'
-    + '<div style="font-size:10px;font-weight:700;letter-spacing:.15em;color:' + DARK + ';text-transform:uppercase;border-bottom:1px solid #e8e8e0;padding-bottom:4px;margin-bottom:0">Detalle de cajas</div>'
-    + '<table style="width:100%;border-collapse:collapse;margin-bottom:20px">'
-    + '<thead><tr style="border-bottom:1px solid #e8e8e0">'
-    + '<th style="padding:8px 12px;text-align:left;font-weight:500;color:#999;font-size:11px">Descripción</th>'
-    + '<th style="padding:8px 12px;text-align:left;font-weight:500;color:#999;font-size:11px">Contenido</th>'
-    + '<th style="padding:8px 12px;text-align:right;font-weight:500;color:#999;font-size:11px">Importe</th>'
-    + '</tr></thead><tbody>' + filasHTML + descRowHTML + '</tbody></table>'
-    + '<div style="font-size:10px;font-weight:700;letter-spacing:.15em;color:' + DARK + ';text-transform:uppercase;border-bottom:1px solid #e8e8e0;padding-bottom:4px;margin-bottom:10px">Condiciones de cobro</div>'
-    + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">'
-    + '<tr><td style="padding:3px 0;color:#999;width:32%">Método</td><td style="padding:3px 0">' + (p.metodoCobro || '') + '</td></tr>'
-    + '<tr><td style="padding:3px 0;color:#999">Moneda</td><td style="padding:3px 0">' + (p.moneda === 'USD' ? 'Dólares americanos' : 'Pesos argentinos') + '</td></tr>'
-    + tcRowHTML + '</table>'
-    + '<div style="border-top:2px solid ' + DARK + ';padding-top:14px;display:flex;justify-content:space-between;align-items:center">'
-    + '<span style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:.08em">Total</span>'
-    + '<span style="font-size:22px;font-weight:700;color:' + DARK + '">' + totalDisplay + '</span></div>'
-    + unidadesHTML
-    + '</div>'
-    + '<div style="background:#f7f7f5;border-top:1px solid #e8e8e0;padding:12px 28px;display:flex;justify-content:space-between;align-items:center">'
-    + '<span style="font-size:11px;color:#bbb">Documento válido como comprobante de compra</span>'
-    + '<span style="font-size:11px;color:#bbb">AGF Messenchymal · 2026</span></div>'
-    + '</div></body></html>';
+    // Header
+    + '<tr><td style="padding:24px 36px 0">'
+    +   '<div style="font-family:Georgia,\'Times New Roman\',serif;font-size:15px;font-weight:700;color:' + DARK + '">AGF Mesenchymal</div>'
+    +   '<div style="font-family:Georgia,\'Times New Roman\',serif;font-size:10px;color:#aaa;font-style:italic;margin-top:1px">Argentina</div>'
+    + '</td></tr>'
+
+    // Banner admin (vacío si no es admin)
+    + adminBanner
+
+    // Cuerpo
+    + '<tr><td style="padding:22px 36px 28px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.75;color:#2a2a2a">'
+    +   '<p style="margin:0 0 12px">' + saludo + ' gracias por confiar en nosotros.</p>'
+    +   '<p style="margin:0 0 12px">Adjunto el comprobante de tu compra. Tus productos ya est\u00e1n reservados en el stand B28 al final de la expo. Cuando puedas, te esperamos para que retires tu pedido.</p>'
+    +   '<p style="margin:0 0 28px">' + contacto + '</p>'
+
+    // Firma
+    +   '<table cellpadding="0" cellspacing="0" width="100%"><tr>'
+    +   '<td style="border-top:1px solid #e8e8e0;padding-top:18px">'
+    +     '<div style="font-family:Georgia,\'Times New Roman\',serif;font-size:13px;font-weight:700;color:' + DARK + '">Alan J. Haslop</div>'
+    +     '<div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#999;margin-top:3px">Director Ejecutivo</div>'
+    +     '<div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#999">AGF Mesenchymal <em>Argentina</em></div>'
+    +   '</td></tr></table>'
+    + '</td></tr>'
+
+    // Footer
+    + '<tr><td style="background:#f7f7f5;border-top:1px solid #eeece6;padding:10px 36px">'
+    +   '<span style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#bbb">AGF Mesenchymal &middot; BAAS 2026</span>'
+    + '</td></tr>'
+
+    + '</table>'
+    + '</td></tr>'
+    + '</table>'
+    + '</td></tr></table>'
+    + '</body></html>';
 }
 
 
