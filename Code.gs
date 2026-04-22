@@ -788,9 +788,9 @@ function obtenerOCrearHoja(nombre, fnHeaders) {
 
 // ── TEST MANUAL ──────────────────────────────────────────────────
 function testManual() {
-  const payload = {
+  const basePayload = {
     ventaNum: 99,
-    fecha: '19/4/2026, 10:00:00',
+    fecha: '22/4/2026, 10:00:00',
     dispositivo: 'TEST',
     cliente: { nombre:'Ana', apellido:'García', cuit:'20-12345678-0', mail:'alan.haslop@dermacells.com.ar', tel:'', localidad:'CABA' },
     facturacion: { razonSocial:'Empresa SA', cuitFacturacion:'30-99999999-0', mismosContacto:false },
@@ -808,23 +808,50 @@ function testManual() {
     descuentoGlobal: 0
   };
 
-  const u = calcUnidades(payload);
+  // ── Unidades esperadas: Dermal=11 (5+2+0), Capillary=6 (0+1+5), Pink=1, Biomask=1 ──
+  const u = calcUnidades(basePayload);
   Logger.log('Unidades calculadas: ' + JSON.stringify(u));
-  // Esperado: Dermal=11 (5+2+0), Capillary=6 (0+1+5), Pink=1, Biomask=1
 
-  const { blob, url } = generarPdfRecibo(payload);
+  // ── PDF de prueba (una sola vez, vendedor = Gabriel) ──
+  const pdfPayload = Object.assign({}, basePayload, { vendedor:'Gabriel' });
+  const { blob, url } = generarPdfRecibo(pdfPayload);
   Logger.log('PDF generado: ' + blob.getName() + ' (' + blob.getBytes().length + ' bytes)');
   Logger.log('URL en Drive: ' + url);
 
-  guardarVenta(payload, url);
-  actualizarResumen(payload);
-  obtenerOCrearHoja(SHEET_STOCK, crearHojaStock);
+  // ── 4 ventas en 3 días distintos con 4 vendedores distintos ──
+  // Poblará el Dashboard con las 3 tablas diarias + el ranking total.
+  // NOTA: el Resumen agrupa por "hoy" (no usa timestamp falseado), así que todas
+  // las filas del Resumen quedan con la fecha de hoy. El Dashboard sí lee el
+  // timestamp real de la col A de Ventas y por eso distribuye bien los días.
+  const ventasTest = [
+    { vendedor:'Gabriel',     diasAtras:0, ventaNum:991 },
+    { vendedor:'Federico',    diasAtras:0, ventaNum:992 },
+    { vendedor:'Cecilia',     diasAtras:1, ventaNum:993 },
+    { vendedor:'Calcopietro', diasAtras:2, ventaNum:994 }
+  ];
 
-  // Enviar emails con el PDF adjunto (igual que doPost)
-  enviarEmailCliente(payload, blob);
-  Logger.log('Email cliente enviado a: ' + payload.cliente.mail);
-  enviarEmailAdmin(payload, blob);
+  const sheet = obtenerOCrearHoja(SHEET_VENTAS, crearHeadersVentas);
+
+  ventasTest.forEach(function(t) {
+    const p = Object.assign({}, basePayload, { vendedor:t.vendedor, ventaNum:t.ventaNum });
+    guardarVenta(p, url);
+    // Sobreescribir col A (timestamp) con fecha falseada para poder testear Dashboard
+    const lastRow = sheet.getLastRow();
+    const fakeDate = new Date();
+    fakeDate.setDate(fakeDate.getDate() - t.diasAtras);
+    sheet.getRange(lastRow, 1).setValue(fakeDate);
+    actualizarResumen(p);
+    Logger.log('Venta test guardada: #' + t.ventaNum + ' · ' + t.vendedor + ' · ' + fakeDate.toDateString());
+  });
+
+  obtenerOCrearHoja(SHEET_STOCK, crearHojaStock);
+  obtenerOCrearHoja(SHEET_DASHBOARD, crearHojaDashboard);
+
+  // Un solo mail (no spamear con 4)
+  enviarEmailCliente(pdfPayload, blob);
+  Logger.log('Email cliente enviado a: ' + pdfPayload.cliente.mail);
+  enviarEmailAdmin(pdfPayload, blob);
   Logger.log('Email admin enviado a: ' + ADMIN_EMAIL);
 
-  Logger.log('testManual completado OK');
+  Logger.log('testManual completado OK — revisá la hoja Dashboard');
 }
