@@ -155,7 +155,7 @@ function crearHeadersVentas(sheet) {
   sheet.appendRow(headers);
   sheet.setFrozenRows(1);
   sheet.getRange(1, 1, 1, headers.length)
-    .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
+    .setBackground('#1B3A52').setFontColor('#ffffff').setFontWeight('bold');
   sheet.setColumnWidth(1,  160);
   sheet.setColumnWidth(4,  120); // Vendedor
   sheet.setColumnWidth(5,  140); // Fecha local
@@ -236,7 +236,7 @@ function crearHojaStock(sheet) {
     'Producto', 'Stock Inicial', 'Vendidas Total', 'Stock Disponible', 'Vendidas Hoy', 'Stock Fin del Día'
   ]]);
   sheet.getRange('A3:F3')
-    .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
+    .setBackground('#1B3A52').setFontColor('#ffffff').setFontWeight('bold');
 
   PRODS.forEach(function(prod, i) {
     var row  = 4 + i;
@@ -277,7 +277,7 @@ function crearHojaStock(sheet) {
     'Fecha', 'Dermal', 'Capillary', 'Pink', 'Biomask', 'Cajas', 'Total U$D', 'Total ARS', '# Ventas'
   ]]);
   sheet.getRange('A10:I10')
-    .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
+    .setBackground('#1B3A52').setFontColor('#ffffff').setFontWeight('bold');
 
   // QUERY sobre hoja Resumen (ya tiene datos agregados por día, mucho más simple)
   // Resumen: A=Fecha, B=Método, C=Vendedor, D=Cajas, E=U$D, F=ARS, G=#Ventas, H=Dermal, I=Capillary, J=Pink, K=Biomask
@@ -325,7 +325,7 @@ function crearHojaDashboard(sheet) {
 
   sheet.getRange('G1').setValue('DÍAS DETECTADOS (AUTO)')
     .setFontWeight('bold').setFontSize(10).setFontColor('#1B3A52');
-  sheet.getRange('G1:H1').merge().setBackground('#E1F5EE');
+  sheet.getRange('G1:H1').merge().setBackground('#EEF4F8');
   sheet.getRange('G2').setValue('1º (+ reciente):');
   sheet.getRange('G3').setValue('2º:');
   sheet.getRange('G4').setValue('3º:');
@@ -368,7 +368,7 @@ function crearHojaDashboard(sheet) {
   CELDAS_FECHA.forEach(function(cell) {
     sheet.getRange(row, 1).setFormula(tituloDia(cell))
       .setFontWeight('bold').setFontSize(11).setFontColor('#1B3A52');
-    sheet.getRange(row, 1, 1, 5).setBackground('#E1F5EE');
+    sheet.getRange(row, 1, 1, 5).setBackground('#EEF4F8');
     row++;
     sheet.getRange(row, 1).setFormula(formulaRankingDia(cell));
     row += 16; // espacio reservado para la tabla + separación
@@ -377,7 +377,7 @@ function crearHojaDashboard(sheet) {
   // ── Tabla total ──
   sheet.getRange(row, 1).setValue('RANKING TOTAL (TODAS LAS VENTAS)')
     .setFontWeight('bold').setFontSize(11).setFontColor('#ffffff');
-  sheet.getRange(row, 1, 1, 5).setBackground('#1D9E75');
+  sheet.getRange(row, 1, 1, 5).setBackground('#1B3A52');
   row++;
   sheet.getRange(row, 1).setFormula(formulaRankingTotal);
 
@@ -467,7 +467,7 @@ function buildReciboHTML(p) {
   var c    = p.cliente     || {};
   var f    = p.facturacion || {};
   var DARK  = '#1B3A52';
-  var GREEN = '#9FD4C0';
+  var GREEN = '#B8CAD9';
   var u    = calcUnidades(p);
 
   // ── Estilos reutilizables ──
@@ -488,7 +488,7 @@ function buildReciboHTML(p) {
   // ── Filas de cajas ──
   var filas = (p.cajas || []).map(function(l) {
     var tipo       = l.tipo === 'cerrada' ? 'Cerrada' : 'Combinada';
-    var tagBg      = l.tipo === 'cerrada' ? '#EEF4F8' : '#f0faf6';
+    var tagBg      = l.tipo === 'cerrada' ? '#EEF4F8' : '#F5F9FC';
     var descBadge  = l.descCaja > 0 ? ' <span style="color:#e67e22;font-size:10px;font-style:italic">&#8212; desc. ' + l.descCaja + '%</span>' : '';
     return '<tr style="border-bottom:1px solid #f5f2ec">'
       + '<td style="padding:6px 8px;width:80px"><table cellpadding="0" cellspacing="0"><tr>'
@@ -691,7 +691,7 @@ function buildTextoPlano(p) {
 function buildEmailHTML(p, isAdmin) {
   const c     = p.cliente     || {};
   const f     = p.facturacion || {};
-  const GREEN = '#1D9E75';
+  const GREEN = '#B8CAD9';
   const DARK  = '#1B3A52';
   const u     = calcUnidades(p);
 
@@ -737,7 +737,7 @@ function buildEmailHTML(p, isAdmin) {
     + '<div style="max-width:560px;margin:24px auto;background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.1)">'
     + '<div style="background:' + DARK + ';padding:20px 28px;display:flex;justify-content:space-between;align-items:center">'
     + '<div><div style="font-size:19px;font-weight:700;color:' + GREEN + '">AGF Messenchymal</div>'
-    + '<div style="font-size:11px;color:#9FD4C0;margin-top:2px">dermacells.com.ar · Argentina</div></div>'
+    + '<div style="font-size:11px;color:#B8CAD9;margin-top:2px">dermacells.com.ar · Argentina</div></div>'
     + '<div style="text-align:right"><div style="font-size:10px;color:#9ab;letter-spacing:.1em;text-transform:uppercase">Comprobante de compra</div>'
     + '<div style="font-size:14px;font-weight:700;color:' + GREEN + ';margin-top:4px">Venta #' + p.ventaNum + '</div>'
     + '<div style="font-size:10px;color:#9ab;margin-top:2px">BAAS 2026</div></div></div>'
