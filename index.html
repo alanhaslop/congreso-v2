@@ -103,13 +103,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 .resumen-total span:first-child{font-size:15px;font-weight:600}
 .resumen-total .amt-usd{font-size:28px;font-weight:700;color:var(--green-dark)}
 .resumen-total .amt-ars{font-size:16px;color:var(--text-muted);margin-left:8px}
-.desc-global-row{display:flex;align-items:center;gap:8px;margin-top:.75rem;flex-wrap:wrap}
-.desc-global-row label{font-size:13px;color:var(--text-muted)}
-.desc-global-row input{border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:14px;width:110px;outline:none;background:#fff}
+.desc-global-row{display:flex;align-items:center;gap:8px;margin-top:.5rem}
+.desc-global-row label{font-size:13px;color:var(--text-muted);min-width:130px}
+.desc-global-row input{border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:14px;width:120px;outline:none;background:#fff}
 .desc-global-row input:focus{border-color:var(--green)}
-.desc-modo-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;width:fit-content}
-.desc-modo-btn{padding:7px 12px;font-size:13px;font-weight:500;border:none;background:#fff;color:var(--text-muted);cursor:pointer}
-.desc-modo-btn.on{background:var(--green);color:#fff;font-weight:600}
 
 .btn-confirmar{width:100%;padding:15px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;margin-bottom:6px}
 .btn-confirmar:hover{background:var(--green-dark)}
@@ -284,10 +281,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     </div>
     <div class="tc-row" id="tc-row" style="margin-top:1rem">
       <label>Tipo de cambio:</label>
-      <input type="number" id="tc-input" value="1300" min="1" oninput="refreshDescPrefill();calcResumen()">
+      <input type="number" id="tc-input" value="1300" min="1" oninput="refreshDescEfectivoPrefill();calcResumen()">
       <span style="font-size:13px;color:var(--text-muted)">AR$/U$D</span>
     </div>
     <div id="moneda-label" style="margin-top:.5rem;font-size:12px;color:var(--text-muted)">Cobrando en AR$ · Efectivo y Transferencia pueden usar U$D</div>
+    <div id="desc-efectivo-row" style="display:none;margin-top:.9rem;padding-top:.75rem;border-top:1px dashed var(--border)">
+      <div style="font-size:12px;color:var(--text-muted);font-weight:500;margin-bottom:.4rem">Descuento por Efectivo</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="number" id="desc-efectivo" value="0" min="0" placeholder="0" oninput="onDescEfectivoInput()" style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:14px;width:120px;outline:none;background:#fff">
+        <span id="desc-efectivo-unit" style="font-size:13px;color:var(--text-muted)">u$</span>
+        <button type="button" onclick="resetDescEfectivo()" style="margin-left:auto;font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;color:var(--text-muted);cursor:pointer">Volver a la fórmula</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-hint);margin-top:.35rem">Prefill: 50·cerradas + 150·combinadas (se recalcula al cambiar cajas, moneda o TC)</div>
+    </div>
   </div>
 
   <!-- 4. DATOS DE FACTURACIÓN -->
@@ -318,12 +324,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     <div id="resumen-lineas"></div>
     <div class="desc-global-row">
       <label>Descuento global:</label>
-      <input type="number" id="desc-global" value="0" min="0" max="100" placeholder="0" oninput="onDescGlobalInput()">
-      <div class="desc-modo-toggle">
-        <button type="button" id="desc-modo-pct" class="desc-modo-btn on" onclick="setDescModo('pct')">%</button>
-        <button type="button" id="desc-modo-monto" class="desc-modo-btn" onclick="setDescModo('monto')">monto</button>
-      </div>
-      <span id="desc-modo-unit" style="font-size:13px;color:var(--text-muted)">%</span>
+      <input type="number" id="desc-global" value="0" min="0" max="100" placeholder="0" oninput="calcResumen()">
+      <span style="font-size:13px;color:var(--text-muted)">%</span>
+    </div>
+    <div class="desc-global-row">
+      <label>Descuento monto:</label>
+      <input type="number" id="desc-monto" value="0" min="0" placeholder="0" oninput="calcResumen()">
+      <span id="desc-monto-unit" style="font-size:13px;color:var(--text-muted)">AR$</span>
     </div>
     <div class="resumen-total">
       <span>Total</span>
@@ -371,8 +378,7 @@ const DEVICE_RANGES = {A:1, B:1001};
 let deviceId = "";
 let vNum = 1;
 let cajas = [], metodo = "", moneda = "ARS", condFiscal = "";
-let descModo = "pct";            // "pct" | "monto"
-let descMontoUserEdited = false; // si el usuario tipeó manualmente en modo monto
+let descEfectivoUserEdited = false; // si el operador tipeó manualmente el desc. de Efectivo
 
 // VENDEDOR — combobox custom (editable + filtrado)
 const VENDEDORES = ["Alan","Alejandra","Andrés","Ariana","Calcopietro","Cecilia","Delfina","Eduardo","Federico","Gabriel","Héctor","Julio","Paola"];
@@ -537,9 +543,9 @@ function getDatosFacturacion(){
 
 // CAJAS
 let cajaId=0;
-function agregarCaja(){ const id=++cajaId; cajas.push({id,tipo:"cerrada",producto:PRODS[0],slots:[],descPct:0}); renderCajas(); refreshDescPrefill(); calcResumen(); }
-function eliminarCaja(id){ cajas=cajas.filter(c=>c.id!==id); renderCajas(); refreshDescPrefill(); calcResumen(); }
-function cambiarTipoCaja(id,tipo){ const c=cajas.find(x=>x.id===id); c.tipo=tipo; c.slots=[]; renderCajas(); refreshDescPrefill(); calcResumen(); }
+function agregarCaja(){ const id=++cajaId; cajas.push({id,tipo:"cerrada",producto:PRODS[0],slots:[],descPct:0}); renderCajas(); refreshDescEfectivoPrefill(); calcResumen(); }
+function eliminarCaja(id){ cajas=cajas.filter(c=>c.id!==id); renderCajas(); refreshDescEfectivoPrefill(); calcResumen(); }
+function cambiarTipoCaja(id,tipo){ const c=cajas.find(x=>x.id===id); c.tipo=tipo; c.slots=[]; renderCajas(); refreshDescEfectivoPrefill(); calcResumen(); }
 function cambiarProducto(id,prod){ cajas.find(x=>x.id===id).producto=prod; calcResumen(); }
 function cambiarDescCaja(id,v){ cajas.find(x=>x.id===id).descPct=parseFloat(v)||0; calcResumen(); }
 function agregarSlot(id,prod){ const c=cajas.find(x=>x.id===id); if(c.slots.length>=5)return; c.slots.push(prod); renderCajas(); }
@@ -598,52 +604,45 @@ function renderCajas(){
 }
 function precioConDesc(precio,pct){ return Math.round(precio*(1-(pct||0)/100)); }
 
-// DESCUENTO GLOBAL (% / monto)
+// DESCUENTOS
+// Fórmula base del descuento por Efectivo (50·cerradas + 150·combinadas, en U$D).
 function calcDescEfectivoUSD(){
   let cerr=0, comb=0;
   cajas.forEach(c => { if(c.tipo==="cerrada") cerr++; else comb++; });
   return 50*cerr + 150*comb;
 }
-function descuentoEnMonedaDisplay(){
+// Valor de la fórmula expresado en la moneda visible (u$ o AR$).
+function descEfectivoPrefillDisplay(){
   const tc = parseFloat(document.getElementById("tc-input")?.value)||1300;
   const usd = calcDescEfectivoUSD();
   return moneda==="ARS" ? Math.round(usd*tc) : usd;
 }
-function setDescModo(m){
-  descModo = m;
-  document.getElementById("desc-modo-pct").classList.toggle("on", m==="pct");
-  document.getElementById("desc-modo-monto").classList.toggle("on", m==="monto");
-  document.getElementById("desc-modo-unit").textContent = m==="pct" ? "%" : (moneda==="ARS"?"AR$":"u$");
-  const inp = document.getElementById("desc-global");
-  if(m==="pct"){ inp.max = 100; } else { inp.removeAttribute("max"); }
-  descMontoUserEdited = false;
-  refreshDescPrefill();
+// "Vuelve a la fórmula" del desc. por Efectivo: overwrite del input al cambiar cajas/moneda/TC.
+function refreshDescEfectivoPrefill(){
+  document.getElementById("desc-efectivo-unit").textContent = moneda==="ARS" ? "AR$" : "u$";
+  document.getElementById("desc-monto-unit").textContent    = moneda==="ARS" ? "AR$" : "u$";
+  if(metodo!=="Efectivo") return;
+  document.getElementById("desc-efectivo").value = descEfectivoPrefillDisplay();
+  descEfectivoUserEdited = false;
+}
+function onDescEfectivoInput(){ descEfectivoUserEdited = true; calcResumen(); }
+function resetDescEfectivo(){
+  document.getElementById("desc-efectivo").value = descEfectivoPrefillDisplay();
+  descEfectivoUserEdited = false;
   calcResumen();
 }
-function onDescGlobalInput(){
-  if(descModo==="monto") descMontoUserEdited = true;
-  calcResumen();
+// Convierte el valor en moneda display del desc. efectivo a U$D.
+function getDescEfectivoUSD(tc){
+  if(metodo!=="Efectivo") return 0;
+  const raw = parseFloat(document.getElementById("desc-efectivo").value)||0;
+  if(raw<=0) return 0;
+  return moneda==="ARS" ? Math.round(raw/tc) : Math.round(raw);
 }
-// "Vuelve a la fórmula": overwrite del input cuando cambian cajas, método, moneda o TC.
-function refreshDescPrefill(){
-  document.getElementById("desc-modo-unit").textContent = descModo==="pct" ? "%" : (moneda==="ARS"?"AR$":"u$");
-  if(descModo!=="monto") return;
-  if(metodo==="Efectivo"){
-    document.getElementById("desc-global").value = descuentoEnMonedaDisplay();
-    descMontoUserEdited = false;
-  }
-}
-function resolveDescGlobalUSD(subtotalUSD, tc){
-  const raw = parseFloat(document.getElementById("desc-global").value)||0;
-  if(raw<=0) return { descUSD:0, descLabel:"" };
-  if(descModo==="pct"){
-    const pct = Math.min(raw, 100);
-    return { descUSD: Math.round(subtotalUSD*pct/100), descLabel: pct+"%" };
-  }
-  // monto: el input está en la moneda mostrada
-  const descUSD = moneda==="ARS" ? Math.round(raw/tc) : Math.round(raw);
-  const descLabel = moneda==="ARS" ? `AR$${raw.toLocaleString("es-AR")}` : `u$${descUSD.toLocaleString("es-AR")}`;
-  return { descUSD, descLabel };
+// Convierte el desc. monto (global, último paso) de moneda display a U$D.
+function getDescMontoUSD(tc){
+  const raw = parseFloat(document.getElementById("desc-monto").value)||0;
+  if(raw<=0) return 0;
+  return moneda==="ARS" ? Math.round(raw/tc) : Math.round(raw);
 }
 
 // MÉTODO Y MONEDA
@@ -663,8 +662,18 @@ function selMetodo(el,m){
   }
   document.querySelectorAll(".moneda-btn").forEach(b=>b.classList.remove("on"));
   document.querySelector(`.moneda-btn[data-moneda="${moneda}"]`).classList.add("on");
-  if(m==="Efectivo"){ setDescModo("monto"); return; } // setDescModo llama refreshDescPrefill + calcResumen
-  refreshDescPrefill();
+  // Mostrar/ocultar y prefillear el campo de Descuento por Efectivo
+  const efRow = document.getElementById("desc-efectivo-row");
+  if(m==="Efectivo"){
+    efRow.style.display="block";
+    refreshDescEfectivoPrefill();
+  } else {
+    efRow.style.display="none";
+    document.getElementById("desc-efectivo").value="0";
+    descEfectivoUserEdited=false;
+  }
+  // Unit del desc-monto sigue a la moneda
+  document.getElementById("desc-monto-unit").textContent = moneda==="ARS" ? "AR$" : "u$";
   calcResumen();
 }
 function selMoneda(m,el){
@@ -673,7 +682,7 @@ function selMoneda(m,el){
   el.classList.add("on"); moneda=m;
   document.getElementById("tc-row").style.display=m==="USD"?"none":"flex";
   document.getElementById("moneda-label").textContent=metodo+": cobrando en "+(m==="USD"?"U$D":"AR$");
-  refreshDescPrefill();
+  refreshDescEfectivoPrefill();
   calcResumen();
 }
 
@@ -683,7 +692,7 @@ function calcResumen(){
   let subtotalUSD=0;
   const linesHTML=cajas.map((c,i)=>{
     const precioBase=c.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
-    const precioCaja=precioConDesc(precioBase,c.descPct); // sin descuento global
+    const precioCaja=precioConDesc(precioBase,c.descPct); // sin descuentos globales
     subtotalUSD+=precioCaja;
     const desc=c.tipo==="cerrada"?c.producto:`Combinada (${c.slots.join(", ")||"sin completar"})`;
     const display=moneda==="USD"
@@ -691,10 +700,22 @@ function calcResumen(){
       :`u$${precioCaja.toLocaleString("es-AR")} <span style="font-size:12px;color:#888">/ AR$${(precioCaja*tc).toLocaleString("es-AR")}</span>`;
     return`<div class="resumen-row"><span>Caja ${i+1} — ${desc}</span><span>${display}</span></div>`;
   }).join("");
-  const { descUSD, descLabel } = resolveDescGlobalUSD(subtotalUSD, tc);
-  const totalUSD = Math.max(0, subtotalUSD - descUSD);
-  const descLine=descUSD>0?`<div class="resumen-row" style="color:#e67e22;font-size:12px"><span>Descuento ${descLabel}</span><span>− u$${descUSD.toLocaleString("es-AR")}</span></div>`:"";
-  document.getElementById("resumen-lineas").innerHTML=linesHTML+descLine;
+
+  // Orden: Efectivo → % → monto
+  const descEfectivoUSD = getDescEfectivoUSD(tc);
+  const afterEfectivoUSD = Math.max(0, subtotalUSD - descEfectivoUSD);
+  const pctRaw  = parseFloat(document.getElementById("desc-global").value)||0;
+  const pct     = Math.min(Math.max(pctRaw,0), 100);
+  const descPctUSD = Math.round(afterEfectivoUSD*pct/100);
+  const afterPctUSD = Math.max(0, afterEfectivoUSD - descPctUSD);
+  const descMontoUSD = Math.min(getDescMontoUSD(tc), afterPctUSD);
+  const totalUSD = Math.max(0, afterPctUSD - descMontoUSD);
+
+  const rows = [];
+  if(descEfectivoUSD>0) rows.push(`<div class="resumen-row" style="color:#e67e22;font-size:12px"><span>Desc. efectivo</span><span>− u$${descEfectivoUSD.toLocaleString("es-AR")}</span></div>`);
+  if(descPctUSD>0)      rows.push(`<div class="resumen-row" style="color:#e67e22;font-size:12px"><span>Desc. global ${pct}%</span><span>− u$${descPctUSD.toLocaleString("es-AR")}</span></div>`);
+  if(descMontoUSD>0)    rows.push(`<div class="resumen-row" style="color:#e67e22;font-size:12px"><span>Desc. monto</span><span>− u$${descMontoUSD.toLocaleString("es-AR")}</span></div>`);
+  document.getElementById("resumen-lineas").innerHTML = linesHTML + rows.join("");
   document.getElementById("total-usd").textContent=`u$${totalUSD.toLocaleString("es-AR")}`;
   document.getElementById("total-ars").textContent=moneda==="ARS"?`= AR$${(totalUSD*tc).toLocaleString("es-AR")}` :"";
 }
@@ -730,10 +751,17 @@ function buildPayload(){
     subtotalUSD+=precio;
     return{caja:i+1,tipo:caja.tipo,detalle:caja.tipo==="cerrada"?caja.producto:caja.slots.join(", "),descCaja:caja.descPct,precio};
   });
-  const { descUSD } = resolveDescGlobalUSD(subtotalUSD, tc);
-  const totalUSD = Math.max(0, subtotalUSD - descUSD);
-  const totalARS = moneda==="ARS" ? Math.round(totalUSD*tc) : null;
-  const rawDesc = parseFloat(document.getElementById("desc-global").value)||0;
+  // Orden: Efectivo → % → monto
+  const descEfectivoUSD = getDescEfectivoUSD(tc);
+  const afterEfectivo   = Math.max(0, subtotalUSD - descEfectivoUSD);
+  const pctRaw = parseFloat(document.getElementById("desc-global").value)||0;
+  const pct    = Math.min(Math.max(pctRaw,0), 100);
+  const descPctUSD = Math.round(afterEfectivo*pct/100);
+  const afterPct   = Math.max(0, afterEfectivo - descPctUSD);
+  const descMontoUSD = Math.min(getDescMontoUSD(tc), afterPct);
+  const totalUSD   = Math.max(0, afterPct - descMontoUSD);
+  const totalARS   = moneda==="ARS" ? Math.round(totalUSD*tc) : null;
+  const descuentoTotalUSD = subtotalUSD - totalUSD;
   return{
     ventaNum:vNum,
     fecha:new Date().toLocaleString("es-AR"),
@@ -742,9 +770,10 @@ function buildPayload(){
     subtotalUSD, totalUSD, totalARS, moneda,
     tipoCambio: moneda==="ARS"?tc:null,
     metodoCobro: metodo,
-    descuentoGlobal: descModo==="pct" ? rawDesc : 0,          // compat con Sheets
-    descuentoMontoUSD: descModo==="monto" ? descUSD : 0,
-    descuentoTotalUSD: descUSD
+    descuentoGlobal:      pct,                  // % (compat con Sheets)
+    descuentoEfectivoUSD: descEfectivoUSD,      // descuento por Efectivo
+    descuentoMontoUSD:    descMontoUSD,         // ajuste final en monto
+    descuentoTotalUSD
   };
 }
 
@@ -1009,11 +1038,12 @@ function nuevaVenta(){
   ["nombre","apellido","cuit","mail","tel","localidad","razon-social","cuit-facturacion","vendedor-input"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   vendedor="";
   document.getElementById("desc-global").value="0";
-  document.getElementById("desc-global").max=100;
-  descModo="pct"; descMontoUserEdited=false;
-  document.getElementById("desc-modo-pct").classList.add("on");
-  document.getElementById("desc-modo-monto").classList.remove("on");
-  document.getElementById("desc-modo-unit").textContent="%";
+  document.getElementById("desc-monto").value="0";
+  document.getElementById("desc-efectivo").value="0";
+  descEfectivoUserEdited=false;
+  document.getElementById("desc-efectivo-row").style.display="none";
+  document.getElementById("desc-monto-unit").textContent="AR$";
+  document.getElementById("desc-efectivo-unit").textContent="u$";
   document.getElementById("mismos-datos").checked=true;
   document.getElementById("datos-facturacion-extra").style.display="none";
   document.querySelectorAll(".metodo-btn,.cond-btn").forEach(b=>b.classList.remove("on"));
