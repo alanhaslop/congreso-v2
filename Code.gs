@@ -25,8 +25,24 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     if (!p.ventaNum) throw new Error('Payload inválido: falta ventaNum');
 
-    // Generar PDF primero para tener la URL antes de guardar en Sheets
-    const { blob: pdfBlob, url: pdfUrl } = generarPdfRecibo(p);
+    // PDF: si viene base64 del cliente lo usamos directamente (calidad exacta del recibo visual)
+    // Si no, fallback a la conversión HTML→GDoc (legacy / offline sync sin PDF)
+    var pdfBlob, pdfUrl;
+    if (p.pdfBase64) {
+      var nombre    = 'Recibo_Venta_' + p.ventaNum + '_' + (p.cliente && p.cliente.apellido || 'cliente') + '.pdf';
+      var pdfBytes  = Utilities.base64Decode(p.pdfBase64);
+      var rawBlob   = Utilities.newBlob(pdfBytes, 'application/pdf', nombre);
+      var folder    = DriveApp.getFolderById(PDF_FOLDER_ID);
+      var savedFile = folder.createFile(rawBlob);
+      savedFile.setName(nombre);
+      pdfUrl  = savedFile.getUrl();
+      pdfBlob = savedFile.getBlob();
+      pdfBlob.setName(nombre);
+    } else {
+      var result = generarPdfRecibo(p);
+      pdfBlob = result.blob;
+      pdfUrl  = result.url;
+    }
 
     guardarVenta(p, pdfUrl);
     actualizarResumen(p);

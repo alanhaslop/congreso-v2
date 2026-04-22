@@ -169,6 +169,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 .btn-reset{width:100%;padding:10px;background:#c0392b;color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer}
 .btn-reset:hover{background:#a93226}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div id="recibo-print"></div>
@@ -596,16 +598,19 @@ async function confirmar(){
   if(cajas.find(x=>x.tipo==="combinada"&&x.slots.length<5)){alert("Completá los 5 productos de cada caja combinada.");return;}
   if(!metodo){alert("Seleccioná un método de cobro.");return;}
   if(!condFiscal&&!confirm("No seleccionaste condición fiscal. ¿Confirmar la venta igual?"))return;
+  document.getElementById("btn-confirmar").disabled=true;
   const _p=buildPayload();
-  // 1. Guardar en IndexedDB de forma inmediata
+  // 1. Generar PDF en el browser (misma vista que el recibo impreso)
+  try{ _p.pdfBase64=await generarPdfBase64(_p); }
+  catch(e){ console.warn('PDF generation error:',e); }
+  // 2. Guardar en IndexedDB
   await saveToQueue(_p);
-  // 2. Mostrar éxito instantáneamente sin esperar red
+  // 3. Mostrar éxito
   document.getElementById("modal-title").textContent="Venta #"+vNum+" confirmada ✓";
   document.getElementById("modal-vnum").textContent="Venta #"+vNum;
   setRow("sheet","warn","En cola — sincronizando...");
   setRow("mail","warn","Se enviará al sincronizar");
   document.getElementById("overlay").className="modal-overlay show";
-  document.getElementById("btn-confirmar").disabled=true;
   updateConnBadge();
   // 3. Intentar sincronizar en background sin bloquear el UI
   setTimeout(()=>syncQueue(),0);
@@ -617,9 +622,11 @@ function setRow(id,est,sub){
 }
 
 // RECIBO
-function imprimirRecibo(){
-  const c=getCliente(); const p=buildPayload();
-  const tc=parseFloat(document.getElementById("tc-input")?.value)||1300;
+// Renderiza el HTML del recibo en #recibo-print (sin imprimir).
+// Usado tanto por imprimirRecibo() como por generarPdfBase64().
+function prepararReciboDOM(p){
+  const c=p.cliente||{};
+  const tc=p.tipoCambio||parseFloat(document.getElementById("tc-input")?.value)||1300;
   const ahora=new Date();
   const fecha=ahora.toLocaleDateString("es-AR",{day:"numeric",month:"long",year:"numeric"})+" · "+ahora.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})+" hs";
 
@@ -802,6 +809,28 @@ function imprimirRecibo(){
     </div>
 
   </div>`;
+}
+
+// Genera PDF como base64 usando html2canvas + jsPDF (misma vista que el recibo impreso).
+async function generarPdfBase64(p){
+  prepararReciboDOM(p);
+  const el=document.getElementById('recibo-print');
+  el.style.cssText='display:block!important;position:fixed;left:-9999px;top:0;width:720px;background:#fff;z-index:-1;';
+  try{
+    const canvas=await html2canvas(el,{scale:1.5,useCORS:true,logging:false,backgroundColor:'#ffffff'});
+    const {jsPDF}=window.jspdf;
+    const pw=canvas.width/1.5, ph=canvas.height/1.5;
+    const pdf=new jsPDF({orientation:'portrait',unit:'px',format:[pw,ph]});
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.88),'JPEG',0,0,pw,ph);
+    return pdf.output('datauristring').split(',')[1];
+  }finally{
+    el.style.cssText='display:none';
+  }
+}
+
+// Botón "Imprimir recibo": renderiza y dispara diálogo de impresión.
+function imprimirRecibo(){
+  prepararReciboDOM(buildPayload());
   setTimeout(()=>window.print(),200);
 }
 
