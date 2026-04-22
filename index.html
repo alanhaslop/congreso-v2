@@ -108,39 +108,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 .desc-global-row input{border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:14px;width:120px;outline:none;background:#fff}
 .desc-global-row input:focus{border-color:var(--green)}
 
-.btn-confirmar{width:100%;padding:15px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;margin-bottom:6px}
-.btn-confirmar:hover{background:var(--green-dark)}
-.btn-confirmar:disabled{background:#ccc;cursor:not-allowed}
-.vnum{text-align:center;font-size:12px;color:var(--text-hint)}
+.vnum{text-align:center;font-size:12px;color:var(--text-hint);margin-top:6px}
 
-/* MODAL */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:1rem}
-.modal-overlay.show{display:flex}
-.modal{background:var(--surface);border-radius:var(--radius);width:100%;max-width:460px;overflow:hidden}
-.mhead{padding:1.1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-.mhead h2{font-size:16px;font-weight:600}
-.mhead-center{justify-content:center;text-align:center}
-.mhead-center h2{font-size:22px;font-weight:700;color:var(--green)}
-.print-btn-cta{width:100%;padding:18px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);letter-spacing:.3px}
-.print-btn-cta:hover{background:var(--green-dark);transform:translateY(-1px)}
-.print-btn-cta:active{transform:translateY(0)}
-.mbody{padding:1.25rem}
-.srow{display:flex;align-items:flex-start;gap:12px;padding:.875rem 1rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:#fafaf9;margin-bottom:10px}
-.srow.ok{border-color:var(--green);background:var(--green-light)}
-.srow.err{border-color:#e74c3c;background:#fdf0f0}
-.sdot{width:11px;height:11px;border-radius:50%;flex-shrink:0;margin-top:3px}
-.sdot-ok{background:var(--green)}
-.sdot-err{background:#e74c3c}
-.sdot-spin{background:#ccc;animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{transform:scale(.6)}50%{transform:scale(1)}}
-.stitle{font-size:14px;font-weight:600;margin-bottom:2px}
-.ssub{font-size:12px;color:var(--text-muted)}
-.print-btn{width:100%;padding:11px;background:#fff;border:1px solid var(--green);color:var(--green);border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;margin-top:.25rem}
-.print-btn:hover{background:var(--green-light)}
-.mfooter{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:8px}
-.mfooter button{flex:1;padding:11px;border-radius:var(--radius-sm);font-size:14px;cursor:pointer;border:1px solid var(--border);background:#fff;font-weight:500}
-.mfooter button.pri{background:var(--green);color:#fff;border-color:var(--green);font-weight:600}
-.mfooter button.pri:hover{background:var(--green-dark)}
+/* BOTONES DE PASOS DE VENTA */
+.venta-actions{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.btn-step{position:relative;width:100%;padding:15px 48px 15px 48px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s,opacity .15s}
+.btn-step:hover:not(:disabled){background:var(--green-dark)}
+.btn-step:disabled{background:#ccc;cursor:not-allowed;color:#f5f5f5}
+.btn-step .step-num{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.btn-step .step-check{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;background:#22C55E;color:#fff;font-size:14px;font-weight:900;display:none;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff}
+.btn-step.done{background:#DFF5E5;color:#1a7f3c}
+.btn-step.done:hover{background:#CDEBD6}
+.btn-step.done .step-num{background:rgba(26,127,60,.18);color:#1a7f3c}
+.btn-step.done .step-check{display:flex}
+
+/* BADGE DE DESCUENTO EN CAJA */
+.caja-desc-badge{display:inline-block;background:#FFF3CD;color:#856404;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;margin-left:6px;letter-spacing:.2px}
 
 @media print{body>*{display:none!important}#recibo-print{display:block!important;padding:28px;font-family:Arial,sans-serif;font-size:13px;color:#000}}
 #recibo-print{display:none}
@@ -158,9 +141,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 .cbdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .cbdot.online{background:#1B3A52}
 .cbdot.offline{background:#e74c3c;animation:pulse 1.5s infinite}
-/* warn state for modal rows */
-.srow.warn{border-color:#e67e22;background:#fef9f0}
-.sdot-warn{background:#e67e22}
+@keyframes pulse{0%,100%{transform:scale(.6)}50%{transform:scale(1)}}
 /* DEVICE SELECTOR */
 .device-sel{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
 .device-btn{flex:1 1 calc(33.33% - 7px);min-width:80px;padding:14px 8px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;background:#fafaf9;color:var(--text);text-align:center;transition:all .12s;line-height:1.7}
@@ -328,23 +309,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     </div>
   </div>
 
-  <button class="btn-confirmar" id="btn-confirmar" onclick="confirmar()">Confirmar venta</button>
-  <div class="vnum" id="vnum-badge">Venta #1</div>
-</div>
-
-<!-- MODAL -->
-<div class="modal-overlay" id="overlay">
-  <div class="modal">
-    <div class="mhead mhead-center">
-      <h2 id="modal-title">Procesando...</h2>
-    </div>
-    <div class="mbody">
-      <button class="print-btn-cta" onclick="imprimirRecibo()">Imprimir Recibo</button>
-    </div>
-    <div class="mfooter">
-      <button class="pri" onclick="nuevaVenta()">Nueva venta</button>
-    </div>
+  <div class="venta-actions">
+    <button class="btn-step" id="btn-enviar" onclick="enviarComprobante()">
+      <span class="step-num">1</span>
+      <span class="step-label">Enviar comprobante</span>
+      <span class="step-check">✓</span>
+    </button>
+    <button class="btn-step" id="btn-imprimir" onclick="imprimirComprobante()" disabled>
+      <span class="step-num">2</span>
+      <span class="step-label">Imprimir comprobante</span>
+      <span class="step-check">✓</span>
+    </button>
+    <button class="btn-step" id="btn-proxima" onclick="proximaVenta()" disabled>
+      <span class="step-num">3</span>
+      <span class="step-label">Próxima venta</span>
+    </button>
   </div>
+  <div class="vnum" id="vnum-badge">Venta #1</div>
 </div>
 
 <script>
@@ -543,7 +524,7 @@ function agregarCaja(){ const id=++cajaId; cajas.push({id,tipo:"cerrada",product
 function eliminarCaja(id){ cajas=cajas.filter(c=>c.id!==id); renderCajas(); refreshDescEfectivoPrefill(); calcResumen(); }
 function cambiarTipoCaja(id,tipo){ const c=cajas.find(x=>x.id===id); c.tipo=tipo; c.slots=[]; renderCajas(); refreshDescEfectivoPrefill(); calcResumen(); }
 function cambiarProducto(id,prod){ cajas.find(x=>x.id===id).producto=prod; calcResumen(); }
-function cambiarDescCaja(id,v){ cajas.find(x=>x.id===id).descPct=parseFloat(v)||0; calcResumen(); }
+function cambiarDescCaja(id,v){ cajas.find(x=>x.id===id).descPct=parseFloat(v)||0; renderCajas(); refreshDescEfectivoPrefill(); calcResumen(); }
 function agregarSlot(id,prod){ const c=cajas.find(x=>x.id===id); if(c.slots.length>=5)return; c.slots.push(prod); renderCajas(); }
 function quitarSlot(id,idx){ cajas.find(x=>x.id===id).slots.splice(idx,1); renderCajas(); }
 
@@ -554,9 +535,10 @@ function renderCajas(){
   cajas.forEach((c,i)=>{
     const div=document.createElement("div");
     div.className="caja-item"+(c.tipo==="combinada"?" combinada":"");
+    const descBadgeHdr = c.descPct>0 ? `<span class="caja-desc-badge">-${c.descPct}%</span>` : "";
     let inner=`
       <div class="caja-header-row">
-        <span class="caja-num">Caja ${i+1}</span>
+        <span class="caja-num">Caja ${i+1}${descBadgeHdr}</span>
         <div class="tipo-toggle">
           <button class="tipo-btn${c.tipo==="cerrada"?" on":""}" onclick="cambiarTipoCaja(${c.id},'cerrada')">Cerrada u$${P_CERRADA}</button>
           <button class="tipo-btn${c.tipo==="combinada"?" on":""}" onclick="cambiarTipoCaja(${c.id},'combinada')">Combinada u$${P_COMBINADA}</button>
@@ -602,9 +584,13 @@ function precioConDesc(precio,pct){ return Math.round(precio*(1-(pct||0)/100)); 
 
 // DESCUENTOS
 // Fórmula base del descuento por Efectivo (50·cerradas + 150·combinadas, en U$D).
+// Las cajas con 100% de descuento no suman (la caja es gratis, no corresponde el bonus).
 function calcDescEfectivoUSD(){
   let cerr=0, comb=0;
-  cajas.forEach(c => { if(c.tipo==="cerrada") cerr++; else comb++; });
+  cajas.forEach(c => {
+    if((c.descPct||0) >= 100) return;
+    if(c.tipo==="cerrada") cerr++; else comb++;
+  });
   return 50*cerr + 150*comb;
 }
 // Valor de la fórmula expresado en la moneda visible (u$ o AR$).
@@ -773,8 +759,8 @@ function buildPayload(){
   };
 }
 
-// CONFIRMAR — offline-first: siempre guarda en IndexedDB primero, luego sincroniza en background
-async function confirmar(){
+// ENVIAR COMPROBANTE — offline-first: siempre guarda en IndexedDB primero, luego sincroniza en background
+async function enviarComprobante(){
   vendedor=(document.getElementById("vendedor-input").value||"").trim();
   if(!vendedor){alert("Seleccioná o escribí el vendedor.");document.getElementById("vendedor-input").focus();return;}
   const c=getCliente();
@@ -783,29 +769,29 @@ async function confirmar(){
   if(cajas.find(x=>x.tipo==="combinada"&&x.slots.length<5)){alert("Completá los 5 productos de cada caja combinada.");return;}
   if(!metodo){alert("Seleccioná un método de cobro.");return;}
   if(!condFiscal&&!confirm("No seleccionaste condición fiscal. ¿Confirmar la venta igual?"))return;
-  document.getElementById("btn-confirmar").disabled=true;
+  const btnEnviar=document.getElementById("btn-enviar");
+  btnEnviar.disabled=true;
   const _p=buildPayload();
   // 1. Generar PDF en el browser (misma vista que el recibo impreso)
   try{ _p.pdfBase64=await generarPdfBase64(_p); }
   catch(e){ console.warn('PDF generation error:',e); }
   // 2. Guardar en IndexedDB
   await saveToQueue(_p);
-  // 3. Mostrar éxito
-  document.getElementById("modal-title").textContent="Venta #"+vNum+" Confirmada ✓";
-  document.getElementById("overlay").className="modal-overlay show";
+  // 3. Marcar paso 1 como "hecho" (clarito + tilde) y habilitar pasos 2 y 3
+  ultimoPayloadEnviado=_p;
+  btnEnviar.classList.add("done");
+  btnEnviar.disabled=false;
+  document.getElementById("btn-imprimir").disabled=false;
+  document.getElementById("btn-proxima").disabled=false;
   updateConnBadge();
-  // 3. Intentar sincronizar en background sin bloquear el UI
+  // 4. Intentar sincronizar en background sin bloquear el UI
   setTimeout(()=>syncQueue(),0);
 }
-function setRow(id,est,sub){
-  document.getElementById("row-"+id).className="srow"+(est==="ok"?" ok":est==="err"?" err":est==="warn"?" warn":"");
-  document.getElementById("dot-"+id).className="sdot "+(est==="ok"?"sdot-ok":est==="err"?"sdot-err":est==="warn"?"sdot-warn":"sdot-spin");
-  document.getElementById("sub-"+id).textContent=sub;
-}
+let ultimoPayloadEnviado=null;
 
 // RECIBO
 // Renderiza el HTML del recibo en #recibo-print (sin imprimir).
-// Usado tanto por imprimirRecibo() como por generarPdfBase64().
+// Usado tanto por imprimirComprobante() como por generarPdfBase64().
 function prepararReciboDOM(p){
   const c=p.cliente||{};
   const tc=p.tipoCambio||parseFloat(document.getElementById("tc-input")?.value)||1300;
@@ -1014,17 +1000,18 @@ async function generarPdfBase64(p){
   }
 }
 
-// Botón "Imprimir recibo": renderiza, imprime y pasa a la siguiente venta.
-function imprimirRecibo(){
-  prepararReciboDOM(buildPayload());
-  const handler=()=>{ window.removeEventListener('afterprint',handler); nuevaVenta(); };
+// Botón "Imprimir comprobante": renderiza e imprime. Al volver del menú de impresión
+// el botón se pone "clarito" con un tilde al lado, pero sigue clickeable por si hay que reimprimir.
+function imprimirComprobante(){
+  prepararReciboDOM(ultimoPayloadEnviado||buildPayload());
+  const btnImp=document.getElementById("btn-imprimir");
+  const handler=()=>{ window.removeEventListener('afterprint',handler); btnImp.classList.add("done"); };
   window.addEventListener('afterprint',handler);
   setTimeout(()=>window.print(),200);
 }
 
 // NAVEGACIÓN
-function cerrar(){ document.getElementById("overlay").className="modal-overlay"; document.getElementById("btn-confirmar").disabled=false; }
-function nuevaVenta(){
+function proximaVenta(){
   vNum++;
   localStorage.setItem("agf_vnum_"+deviceId, vNum);
   cajas=[]; cajaId=0; condFiscal="";
@@ -1048,7 +1035,12 @@ function nuevaVenta(){
   document.getElementById("moneda-label").textContent="Cobrando en AR$ · Efectivo y Transferencia pueden usar U$D";
   document.querySelectorAll(".moneda-btn").forEach(b=>b.classList.remove("on"));
   document.querySelector('.moneda-btn[data-moneda="ARS"]').classList.add("on");
-  agregarCaja(); cerrar();
+  ultimoPayloadEnviado=null;
+  ["btn-enviar","btn-imprimir","btn-proxima"].forEach(id=>document.getElementById(id).classList.remove("done"));
+  document.getElementById("btn-enviar").disabled=false;
+  document.getElementById("btn-imprimir").disabled=true;
+  document.getElementById("btn-proxima").disabled=true;
+  agregarCaja();
 }
 </script>
 
