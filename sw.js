@@ -1,4 +1,4 @@
-const CACHE = 'agf-v2';
+const CACHE = 'agf-v3';
 const BASE = self.location.pathname.replace(/sw\.js$/, '');
 const ASSETS = [
   BASE,
