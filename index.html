@@ -103,10 +103,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 .resumen-total span:first-child{font-size:15px;font-weight:600}
 .resumen-total .amt-usd{font-size:28px;font-weight:700;color:var(--green-dark)}
 .resumen-total .amt-ars{font-size:16px;color:var(--text-muted);margin-left:8px}
-.desc-global-row{display:flex;align-items:center;gap:8px;margin-top:.75rem}
+.desc-global-row{display:flex;align-items:center;gap:8px;margin-top:.75rem;flex-wrap:wrap}
 .desc-global-row label{font-size:13px;color:var(--text-muted)}
-.desc-global-row input{border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:14px;width:100px;outline:none;background:#fff}
+.desc-global-row input{border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:14px;width:110px;outline:none;background:#fff}
 .desc-global-row input:focus{border-color:var(--green)}
+.desc-modo-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;width:fit-content}
+.desc-modo-btn{padding:7px 12px;font-size:13px;font-weight:500;border:none;background:#fff;color:var(--text-muted);cursor:pointer}
+.desc-modo-btn.on{background:var(--green);color:#fff;font-weight:600}
 
 .btn-confirmar{width:100%;padding:15px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;margin-bottom:6px}
 .btn-confirmar:hover{background:var(--green-dark)}
@@ -281,7 +284,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     </div>
     <div class="tc-row" id="tc-row" style="margin-top:1rem">
       <label>Tipo de cambio:</label>
-      <input type="number" id="tc-input" value="1300" min="1" oninput="calcResumen()">
+      <input type="number" id="tc-input" value="1300" min="1" oninput="refreshDescPrefill();calcResumen()">
       <span style="font-size:13px;color:var(--text-muted)">AR$/U$D</span>
     </div>
     <div id="moneda-label" style="margin-top:.5rem;font-size:12px;color:var(--text-muted)">Cobrando en AR$ · Efectivo y Transferencia pueden usar U$D</div>
@@ -315,8 +318,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     <div id="resumen-lineas"></div>
     <div class="desc-global-row">
       <label>Descuento global:</label>
-      <input type="number" id="desc-global" value="0" min="0" max="100" placeholder="0" oninput="calcResumen()">
-      <span style="font-size:13px;color:var(--text-muted)">%</span>
+      <input type="number" id="desc-global" value="0" min="0" max="100" placeholder="0" oninput="onDescGlobalInput()">
+      <div class="desc-modo-toggle">
+        <button type="button" id="desc-modo-pct" class="desc-modo-btn on" onclick="setDescModo('pct')">%</button>
+        <button type="button" id="desc-modo-monto" class="desc-modo-btn" onclick="setDescModo('monto')">monto</button>
+      </div>
+      <span id="desc-modo-unit" style="font-size:13px;color:var(--text-muted)">%</span>
     </div>
     <div class="resumen-total">
       <span>Total</span>
@@ -364,6 +371,8 @@ const DEVICE_RANGES = {A:1, B:1001};
 let deviceId = "";
 let vNum = 1;
 let cajas = [], metodo = "", moneda = "ARS", condFiscal = "";
+let descModo = "pct";            // "pct" | "monto"
+let descMontoUserEdited = false; // si el usuario tipeó manualmente en modo monto
 
 // VENDEDOR — combobox custom (editable + filtrado)
 const VENDEDORES = ["Alan","Alejandra","Andrés","Ariana","Calcopietro","Cecilia","Delfina","Eduardo","Federico","Gabriel","Héctor","Julio","Paola"];
@@ -528,9 +537,9 @@ function getDatosFacturacion(){
 
 // CAJAS
 let cajaId=0;
-function agregarCaja(){ const id=++cajaId; cajas.push({id,tipo:"cerrada",producto:PRODS[0],slots:[],descPct:0}); renderCajas(); }
-function eliminarCaja(id){ cajas=cajas.filter(c=>c.id!==id); renderCajas(); }
-function cambiarTipoCaja(id,tipo){ const c=cajas.find(x=>x.id===id); c.tipo=tipo; c.slots=[]; renderCajas(); }
+function agregarCaja(){ const id=++cajaId; cajas.push({id,tipo:"cerrada",producto:PRODS[0],slots:[],descPct:0}); renderCajas(); refreshDescPrefill(); calcResumen(); }
+function eliminarCaja(id){ cajas=cajas.filter(c=>c.id!==id); renderCajas(); refreshDescPrefill(); calcResumen(); }
+function cambiarTipoCaja(id,tipo){ const c=cajas.find(x=>x.id===id); c.tipo=tipo; c.slots=[]; renderCajas(); refreshDescPrefill(); calcResumen(); }
 function cambiarProducto(id,prod){ cajas.find(x=>x.id===id).producto=prod; calcResumen(); }
 function cambiarDescCaja(id,v){ cajas.find(x=>x.id===id).descPct=parseFloat(v)||0; calcResumen(); }
 function agregarSlot(id,prod){ const c=cajas.find(x=>x.id===id); if(c.slots.length>=5)return; c.slots.push(prod); renderCajas(); }
@@ -552,14 +561,12 @@ function renderCajas(){
         </div>
         ${cajas.length>1?`<button class="btn-del-caja" onclick="eliminarCaja(${c.id})">×</button>`:""}
       </div>`;
-    const descGlobal=parseFloat(document.getElementById("desc-global").value)||0;
     const precioBase=c.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
     const precioDesc=precioConDesc(precioBase,c.descPct);
-    const precioFinal=Math.round(precioDesc*(1-descGlobal/100));
     const tachado=c.descPct>0?`<span style="text-decoration:line-through;color:#bbb;font-size:10px;margin-right:4px">u$${precioBase.toLocaleString("es-AR")}</span>`:"";
     const precioDisplay=moneda==="USD"
-      ?`${tachado}u$${precioFinal.toLocaleString("es-AR")}`
-      :`${tachado}u$${precioFinal.toLocaleString("es-AR")}<br><span style="font-size:11px;color:#666">AR$${(precioFinal*tc).toLocaleString("es-AR")}</span>`;
+      ?`${tachado}u$${precioDesc.toLocaleString("es-AR")}`
+      :`${tachado}u$${precioDesc.toLocaleString("es-AR")}<br><span style="font-size:11px;color:#666">AR$${(precioDesc*tc).toLocaleString("es-AR")}</span>`;
     if(c.tipo==="cerrada"){
       inner+=`<div class="prod-select-row">
         <select onchange="cambiarProducto(${c.id},this.value)">
@@ -591,6 +598,54 @@ function renderCajas(){
 }
 function precioConDesc(precio,pct){ return Math.round(precio*(1-(pct||0)/100)); }
 
+// DESCUENTO GLOBAL (% / monto)
+function calcDescEfectivoUSD(){
+  let cerr=0, comb=0;
+  cajas.forEach(c => { if(c.tipo==="cerrada") cerr++; else comb++; });
+  return 50*cerr + 150*comb;
+}
+function descuentoEnMonedaDisplay(){
+  const tc = parseFloat(document.getElementById("tc-input")?.value)||1300;
+  const usd = calcDescEfectivoUSD();
+  return moneda==="ARS" ? Math.round(usd*tc) : usd;
+}
+function setDescModo(m){
+  descModo = m;
+  document.getElementById("desc-modo-pct").classList.toggle("on", m==="pct");
+  document.getElementById("desc-modo-monto").classList.toggle("on", m==="monto");
+  document.getElementById("desc-modo-unit").textContent = m==="pct" ? "%" : (moneda==="ARS"?"AR$":"u$");
+  const inp = document.getElementById("desc-global");
+  if(m==="pct"){ inp.max = 100; } else { inp.removeAttribute("max"); }
+  descMontoUserEdited = false;
+  refreshDescPrefill();
+  calcResumen();
+}
+function onDescGlobalInput(){
+  if(descModo==="monto") descMontoUserEdited = true;
+  calcResumen();
+}
+// "Vuelve a la fórmula": overwrite del input cuando cambian cajas, método, moneda o TC.
+function refreshDescPrefill(){
+  document.getElementById("desc-modo-unit").textContent = descModo==="pct" ? "%" : (moneda==="ARS"?"AR$":"u$");
+  if(descModo!=="monto") return;
+  if(metodo==="Efectivo"){
+    document.getElementById("desc-global").value = descuentoEnMonedaDisplay();
+    descMontoUserEdited = false;
+  }
+}
+function resolveDescGlobalUSD(subtotalUSD, tc){
+  const raw = parseFloat(document.getElementById("desc-global").value)||0;
+  if(raw<=0) return { descUSD:0, descLabel:"" };
+  if(descModo==="pct"){
+    const pct = Math.min(raw, 100);
+    return { descUSD: Math.round(subtotalUSD*pct/100), descLabel: pct+"%" };
+  }
+  // monto: el input está en la moneda mostrada
+  const descUSD = moneda==="ARS" ? Math.round(raw/tc) : Math.round(raw);
+  const descLabel = moneda==="ARS" ? `AR$${raw.toLocaleString("es-AR")}` : `u$${descUSD.toLocaleString("es-AR")}`;
+  return { descUSD, descLabel };
+}
+
 // MÉTODO Y MONEDA
 function selMetodo(el,m){
   document.querySelectorAll(".metodo-btn").forEach(b=>b.classList.remove("on"));
@@ -608,6 +663,8 @@ function selMetodo(el,m){
   }
   document.querySelectorAll(".moneda-btn").forEach(b=>b.classList.remove("on"));
   document.querySelector(`.moneda-btn[data-moneda="${moneda}"]`).classList.add("on");
+  if(m==="Efectivo"){ setDescModo("monto"); return; } // setDescModo llama refreshDescPrefill + calcResumen
+  refreshDescPrefill();
   calcResumen();
 }
 function selMoneda(m,el){
@@ -616,26 +673,27 @@ function selMoneda(m,el){
   el.classList.add("on"); moneda=m;
   document.getElementById("tc-row").style.display=m==="USD"?"none":"flex";
   document.getElementById("moneda-label").textContent=metodo+": cobrando en "+(m==="USD"?"U$D":"AR$");
+  refreshDescPrefill();
   calcResumen();
 }
 
 // RESUMEN
 function calcResumen(){
-  const descGlobal=parseFloat(document.getElementById("desc-global").value)||0;
   const tc=parseFloat(document.getElementById("tc-input")?.value)||1300;
-  let subtotalUSD=0, totalUSD=0;
+  let subtotalUSD=0;
   const linesHTML=cajas.map((c,i)=>{
     const precioBase=c.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
-    const precioDesc=precioConDesc(precioBase,c.descPct);
-    const precioFinal=Math.round(precioDesc*(1-descGlobal/100));
-    subtotalUSD+=precioDesc; totalUSD+=precioFinal;
+    const precioCaja=precioConDesc(precioBase,c.descPct); // sin descuento global
+    subtotalUSD+=precioCaja;
     const desc=c.tipo==="cerrada"?c.producto:`Combinada (${c.slots.join(", ")||"sin completar"})`;
     const display=moneda==="USD"
-      ?`u$${precioFinal.toLocaleString("es-AR")}`
-      :`u$${precioFinal.toLocaleString("es-AR")} <span style="font-size:12px;color:#888">/ AR$${(precioFinal*tc).toLocaleString("es-AR")}</span>`;
+      ?`u$${precioCaja.toLocaleString("es-AR")}`
+      :`u$${precioCaja.toLocaleString("es-AR")} <span style="font-size:12px;color:#888">/ AR$${(precioCaja*tc).toLocaleString("es-AR")}</span>`;
     return`<div class="resumen-row"><span>Caja ${i+1} — ${desc}</span><span>${display}</span></div>`;
   }).join("");
-  const descLine=descGlobal>0?`<div class="resumen-row" style="color:#e67e22;font-size:12px"><span>Desc. general ${descGlobal}%</span><span>− u$${(subtotalUSD-totalUSD).toLocaleString("es-AR")}</span></div>`:"";
+  const { descUSD, descLabel } = resolveDescGlobalUSD(subtotalUSD, tc);
+  const totalUSD = Math.max(0, subtotalUSD - descUSD);
+  const descLine=descUSD>0?`<div class="resumen-row" style="color:#e67e22;font-size:12px"><span>Descuento ${descLabel}</span><span>− u$${descUSD.toLocaleString("es-AR")}</span></div>`:"";
   document.getElementById("resumen-lineas").innerHTML=linesHTML+descLine;
   document.getElementById("total-usd").textContent=`u$${totalUSD.toLocaleString("es-AR")}`;
   document.getElementById("total-ars").textContent=moneda==="ARS"?`= AR$${(totalUSD*tc).toLocaleString("es-AR")}` :"";
@@ -664,18 +722,30 @@ function getCliente(){
 function buildPayload(){
   const c=getCliente();
   const facturacion=getDatosFacturacion();
-  const descGlobal=parseFloat(document.getElementById("desc-global").value)||0;
   const tc=parseFloat(document.getElementById("tc-input")?.value)||1300;
-  let totalUSD=0;
+  let subtotalUSD=0;
   const lineas=cajas.map((caja,i)=>{
     const precioBase=caja.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
-    const precioDesc=precioConDesc(precioBase,caja.descPct);
-    const precioFinal=Math.round(precioDesc*(1-descGlobal/100));
-    totalUSD+=precioFinal;
-    return{caja:i+1,tipo:caja.tipo,detalle:caja.tipo==="cerrada"?caja.producto:caja.slots.join(", "),descCaja:caja.descPct,precio:precioFinal};
+    const precio=precioConDesc(precioBase,caja.descPct);
+    subtotalUSD+=precio;
+    return{caja:i+1,tipo:caja.tipo,detalle:caja.tipo==="cerrada"?caja.producto:caja.slots.join(", "),descCaja:caja.descPct,precio};
   });
-  const totalARS=moneda==="ARS"?Math.round(totalUSD*tc):null;
-  return{ventaNum:vNum,fecha:new Date().toLocaleString("es-AR"),vendedor,cliente:c,facturacion,condFiscal,cajas:lineas,totalUSD,totalARS,moneda,tipoCambio:moneda==="ARS"?tc:null,metodoCobro:metodo,descuentoGlobal:descGlobal};
+  const { descUSD } = resolveDescGlobalUSD(subtotalUSD, tc);
+  const totalUSD = Math.max(0, subtotalUSD - descUSD);
+  const totalARS = moneda==="ARS" ? Math.round(totalUSD*tc) : null;
+  const rawDesc = parseFloat(document.getElementById("desc-global").value)||0;
+  return{
+    ventaNum:vNum,
+    fecha:new Date().toLocaleString("es-AR"),
+    vendedor,
+    cliente:c, facturacion, condFiscal, cajas:lineas,
+    subtotalUSD, totalUSD, totalARS, moneda,
+    tipoCambio: moneda==="ARS"?tc:null,
+    metodoCobro: metodo,
+    descuentoGlobal: descModo==="pct" ? rawDesc : 0,          // compat con Sheets
+    descuentoMontoUSD: descModo==="monto" ? descUSD : 0,
+    descuentoTotalUSD: descUSD
+  };
 }
 
 // CONFIRMAR — offline-first: siempre guarda en IndexedDB primero, luego sincroniza en background
@@ -758,17 +828,21 @@ function prepararReciboDOM(p){
     </tr>`;
   }).join("");
 
-  // Fila descuento global
-  const subtotalUSD=p.cajas.reduce((acc,l)=>acc+precioConDesc(l.tipo==="cerrada"?P_CERRADA:P_COMBINADA,l.descCaja),0);
-  const ahorroUSD=p.descuentoGlobal>0&&p.descuentoGlobal<100?subtotalUSD-p.totalUSD:0;
-  const descGlobalRow=p.descuentoGlobal>0?`
+  // Fila descuento (único total, sea % o monto)
+  const subtotalUSD = p.subtotalUSD!=null
+    ? p.subtotalUSD
+    : p.cajas.reduce((acc,l)=>acc+precioConDesc(l.tipo==="cerrada"?P_CERRADA:P_COMBINADA,l.descCaja),0);
+  const ahorroUSD = p.descuentoTotalUSD!=null
+    ? p.descuentoTotalUSD
+    : (p.descuentoGlobal>0&&p.descuentoGlobal<100?subtotalUSD-p.totalUSD:0);
+  const descGlobalRow=ahorroUSD>0?`
     <div style="display:flex;gap:12px;padding:2px 0">
       <span style="color:#bbb;min-width:110px;font-size:10px">Subtotal</span>
       <span style="color:#888;font-size:11px">u$${subtotalUSD.toLocaleString("es-AR")}</span>
     </div>
     <div style="display:flex;gap:12px;padding:2px 0">
-      <span style="color:#bbb;min-width:110px;font-size:10px">Desc. general ${p.descuentoGlobal}%</span>
-      <span style="color:#e67e22;font-weight:600;font-size:11px">${ahorroUSD>0?`− u$${ahorroUSD.toLocaleString("es-AR")}`:""}</span>
+      <span style="color:#bbb;min-width:110px;font-size:10px">Descuento</span>
+      <span style="color:#e67e22;font-weight:600;font-size:11px">− u$${ahorroUSD.toLocaleString("es-AR")}</span>
     </div>`:"";
 
   // Total
@@ -935,6 +1009,11 @@ function nuevaVenta(){
   ["nombre","apellido","cuit","mail","tel","localidad","razon-social","cuit-facturacion","vendedor-input"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   vendedor="";
   document.getElementById("desc-global").value="0";
+  document.getElementById("desc-global").max=100;
+  descModo="pct"; descMontoUserEdited=false;
+  document.getElementById("desc-modo-pct").classList.add("on");
+  document.getElementById("desc-modo-monto").classList.remove("on");
+  document.getElementById("desc-modo-unit").textContent="%";
   document.getElementById("mismos-datos").checked=true;
   document.getElementById("datos-facturacion-extra").style.display="none";
   document.querySelectorAll(".metodo-btn,.cond-btn").forEach(b=>b.classList.remove("on"));
