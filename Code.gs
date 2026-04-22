@@ -155,7 +155,7 @@ function crearHeadersVentas(sheet) {
   sheet.appendRow(headers);
   sheet.setFrozenRows(1);
   sheet.getRange(1, 1, 1, headers.length)
-    .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
+    .setBackground('#1B3A52').setFontColor('#ffffff').setFontWeight('bold');
   sheet.setColumnWidth(1,  160);
   sheet.setColumnWidth(4,  120); // Vendedor
   sheet.setColumnWidth(5,  140); // Fecha local
@@ -236,7 +236,7 @@ function crearHojaStock(sheet) {
     'Producto', 'Stock Inicial', 'Vendidas Total', 'Stock Disponible', 'Vendidas Hoy', 'Stock Fin del Día'
   ]]);
   sheet.getRange('A3:F3')
-    .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
+    .setBackground('#1B3A52').setFontColor('#ffffff').setFontWeight('bold');
 
   PRODS.forEach(function(prod, i) {
     var row  = 4 + i;
@@ -277,7 +277,7 @@ function crearHojaStock(sheet) {
     'Fecha', 'Dermal', 'Capillary', 'Pink', 'Biomask', 'Cajas', 'Total U$D', 'Total ARS', '# Ventas'
   ]]);
   sheet.getRange('A10:I10')
-    .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
+    .setBackground('#1B3A52').setFontColor('#ffffff').setFontWeight('bold');
 
   // QUERY sobre hoja Resumen (ya tiene datos agregados por día, mucho más simple)
   // Resumen: A=Fecha, B=Método, C=Vendedor, D=Cajas, E=U$D, F=ARS, G=#Ventas, H=Dermal, I=Capillary, J=Pink, K=Biomask
@@ -325,7 +325,7 @@ function crearHojaDashboard(sheet) {
 
   sheet.getRange('G1').setValue('DÍAS DETECTADOS (AUTO)')
     .setFontWeight('bold').setFontSize(10).setFontColor('#1B3A52');
-  sheet.getRange('G1:H1').merge().setBackground('#E1F5EE');
+  sheet.getRange('G1:H1').merge().setBackground('#EEF4F8');
   sheet.getRange('G2').setValue('1º (+ reciente):');
   sheet.getRange('G3').setValue('2º:');
   sheet.getRange('G4').setValue('3º:');
@@ -368,7 +368,7 @@ function crearHojaDashboard(sheet) {
   CELDAS_FECHA.forEach(function(cell) {
     sheet.getRange(row, 1).setFormula(tituloDia(cell))
       .setFontWeight('bold').setFontSize(11).setFontColor('#1B3A52');
-    sheet.getRange(row, 1, 1, 5).setBackground('#E1F5EE');
+    sheet.getRange(row, 1, 1, 5).setBackground('#EEF4F8');
     row++;
     sheet.getRange(row, 1).setFormula(formulaRankingDia(cell));
     row += 16; // espacio reservado para la tabla + separación
@@ -377,7 +377,7 @@ function crearHojaDashboard(sheet) {
   // ── Tabla total ──
   sheet.getRange(row, 1).setValue('RANKING TOTAL (TODAS LAS VENTAS)')
     .setFontWeight('bold').setFontSize(11).setFontColor('#ffffff');
-  sheet.getRange(row, 1, 1, 5).setBackground('#1D9E75');
+  sheet.getRange(row, 1, 1, 5).setBackground('#1B3A52');
   row++;
   sheet.getRange(row, 1).setFormula(formulaRankingTotal);
 

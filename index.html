@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#1D9E75">
+<meta name="theme-color" content="#1B3A52">
 <link rel="manifest" href="manifest.json">
 <title>AGF Messenchymal — Ventas Congreso</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --green:#1D9E75;--green-dark:#0F6E56;--green-light:#E1F5EE;
+  --green:#1B3A52;--green-dark:#0F2638;--green-light:#EEF4F8;
   --bg:#f5f5f3;--surface:#fff;--border:#e0e0da;
   --text:#1a1a1a;--text-muted:#666;--text-hint:#999;
   --radius:10px;--radius-sm:7px;
@@ -22,7 +22,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 .login-card h1{font-size:17px;font-weight:600;margin-bottom:4px}
 .login-card p{font-size:13px;color:var(--text-muted);margin-bottom:1.5rem}
 .login-card input{width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;font-size:15px;outline:none;margin-bottom:10px;letter-spacing:.15em;text-align:center}
-.login-card input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,.12)}
+.login-card input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(27,58,82,.12)}
 .login-card button{width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer}
 .login-card button:hover{background:var(--green-dark)}
 .login-err{font-size:13px;color:#c0392b;margin-top:8px;min-height:18px}
@@ -39,7 +39,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 .field{display:flex;flex-direction:column;gap:5px}
 .field label{font-size:12px;color:var(--text-muted);font-weight:500}
 .field input,.field select{border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-size:15px;color:var(--text);outline:none;background:#fafaf9;width:100%}
-.field input:focus,.field select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,.1);background:#fff}
+.field input:focus,.field select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(27,58,82,.1);background:#fff}
 .span2{grid-column:span 2}
 
 /* CAJAS */
@@ -47,7 +47,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 .btn-add-caja{padding:7px 14px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer}
 .btn-add-caja:hover{background:var(--green-dark)}
 .caja-item{border:1px solid var(--border);border-radius:var(--radius-sm);padding:.875rem;margin-bottom:.75rem;background:#fafaf9;position:relative}
-.caja-item.combinada{border-color:#9FE1CB;background:#f0faf6}
+.caja-item.combinada{border-color:#B8CAD9;background:#EEF4F8}
 .caja-header-row{display:flex;align-items:center;gap:10px;margin-bottom:.75rem}
 .caja-num{font-size:12px;font-weight:700;color:var(--text-muted);min-width:50px}
 .tipo-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex:1}
@@ -148,17 +148,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 
 /* OFFLINE INDICATOR */
 #conn-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid;margin-left:auto;flex-shrink:0;white-space:nowrap}
-#conn-badge.online{background:#E1F5EE;border-color:#9FE1CB;color:#0F6E56}
+#conn-badge.online{background:#EEF4F8;border-color:#B8CAD9;color:#0F2638}
 #conn-badge.offline{background:#fdf0f0;border-color:#f5c6c6;color:#c0392b}
 .cbdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.cbdot.online{background:#1D9E75}
+.cbdot.online{background:#1B3A52}
 .cbdot.offline{background:#e74c3c;animation:pulse 1.5s infinite}
 /* warn state for modal rows */
 .srow.warn{border-color:#e67e22;background:#fef9f0}
 .sdot-warn{background:#e67e22}
 /* DEVICE SELECTOR */
-.device-sel{display:flex;gap:10px;margin-bottom:10px}
-.device-btn{flex:1;padding:14px 8px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;background:#fafaf9;color:var(--text);text-align:center;transition:all .12s;line-height:1.7}
+.device-sel{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+.device-btn{flex:1 1 calc(33.33% - 7px);min-width:80px;padding:14px 8px;border:2px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;background:#fafaf9;color:var(--text);text-align:center;transition:all .12s;line-height:1.7}
 .device-btn:hover{border-color:var(--green);background:var(--green-light);color:var(--green-dark)}
 /* ADMIN RESET */
 .admin-link{font-size:12px;color:var(--text-hint);cursor:pointer;text-decoration:underline;display:inline-block;margin-top:12px}
@@ -171,7 +171,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 /* COMBOBOX VENDEDOR */
 .combo{position:relative}
 .combo-input{width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 34px 9px 12px;font-size:15px;color:var(--text);outline:none;background:#fafaf9}
-.combo-input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,.1);background:#fff}
+.combo-input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(27,58,82,.1);background:#fff}
 .combo-caret{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted);font-size:11px}
 .combo-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 6px 18px rgba(0,0,0,.08);max-height:260px;overflow-y:auto;z-index:10;display:none}
 .combo-list.show{display:block}
@@ -188,31 +188,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo">AGF<br>MSC</div>
-    <h1>Ventas Congreso</h1>
-    <p>AGF Messenchymal Argentina<br>Acceso restringido al equipo</p>
-    <div id="login-step1">
-      <input type="password" id="pwd-input" placeholder="Contraseña" onkeydown="if(event.key==='Enter')login()">
-      <button onclick="login()">Ingresar</button>
-      <div class="login-err" id="login-err"></div>
-      <span class="admin-link" onclick="toggleAdmin()">Administrador</span>
-      <div class="admin-panel" id="admin-panel">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600">Resetear contadores de venta</div>
-        <input type="password" id="admin-pwd" placeholder="Contraseña" onkeydown="if(event.key==='Enter')resetContadores()">
-        <button class="btn-reset" onclick="resetContadores()">Resetear A = 1 · B = 1001</button>
-        <div class="login-err" id="admin-err"></div>
-      </div>
-    </div>
-    <div id="login-step2" style="display:none">
-      <p style="font-size:14px;color:var(--text-muted);margin-bottom:12px">Seleccioná tu dispositivo</p>
-      <div class="device-sel">
-        <button class="device-btn" onclick="selDevice('A')">
-          Dispositivo A<br><span id="vnum-a-lbl" style="font-size:11px;font-weight:400;color:var(--text-muted)">Venta #1</span>
-        </button>
-        <button class="device-btn" onclick="selDevice('B')">
-          Dispositivo B<br><span id="vnum-b-lbl" style="font-size:11px;font-weight:400;color:var(--text-muted)">Venta #1001</span>
-        </button>
-      </div>
+    <div class="device-sel" id="device-sel"></div>
+    <span class="admin-link" onclick="toggleAdmin()">Administrador</span>
+    <div class="admin-panel" id="admin-panel">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600">Resetear contadores de venta</div>
+      <input type="password" id="admin-pwd" placeholder="Contraseña" onkeydown="if(event.key==='Enter')resetContadores()">
+      <button class="btn-reset" onclick="resetContadores()">Resetear contadores</button>
+      <div class="login-err" id="admin-err"></div>
     </div>
   </div>
 </div>
@@ -222,8 +204,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
   <div class="header">
     <div class="logo">AGF<br>MSC</div>
     <div>
-      <h1>AGF Messenchymal</h1>
-      <p id="vnlbl">Ventas congreso · Venta #1</p>
+      <h1 id="op-name">AGF Messenchymal</h1>
+      <p id="vnlbl">Venta #1</p>
     </div>
     <div id="conn-badge" class="online">
       <span class="cbdot online"></span>
@@ -374,7 +356,14 @@ const PASSWORD        = "agf2025";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxzpC1TNxVfKi0xB6WFkfhH0qDHoJECR8qQ-FvMZl8TjsA9qB7vEbrTF7z_gpJ6hbBq/exec";
 const PRODS           = ["Dermal","Capillary","Pink","Biomask"];
 const P_CERRADA       = 750, P_COMBINADA = 900;
-const DEVICE_RANGES = {A:1, B:1001};
+const OPERADORES = [
+  {id:"Fede", min:0,    max:999},
+  {id:"Alan", min:1000, max:1999},
+  {id:"Edu",  min:2000, max:2999},
+  {id:"Andy", min:3000, max:3999},
+  {id:"Gaby", min:4000, max:4999}
+];
+function getOperador(id){ return OPERADORES.find(o => o.id === id); }
 let deviceId = "";
 let vNum = 1;
 let cajas = [], metodo = "", moneda = "ARS", condFiscal = "";
@@ -465,22 +454,21 @@ async function cargarTipoCambio(){
   }
 }
 
-function login(){
-  if(document.getElementById("pwd-input").value===PASSWORD){
-    const vnA=parseInt(localStorage.getItem("agf_vnum_A")||DEVICE_RANGES.A);
-    const vnB=parseInt(localStorage.getItem("agf_vnum_B")||DEVICE_RANGES.B);
-    document.getElementById("vnum-a-lbl").textContent="Próxima venta #"+vnA;
-    document.getElementById("vnum-b-lbl").textContent="Próxima venta #"+vnB;
-    document.getElementById("login-step1").style.display="none";
-    document.getElementById("login-step2").style.display="block";
-  }else{
-    document.getElementById("login-err").textContent="Contraseña incorrecta.";
-    document.getElementById("pwd-input").value="";
-  }
+function renderOperadores(){
+  const cont = document.getElementById("device-sel");
+  cont.innerHTML = OPERADORES.map(op => {
+    const stored = localStorage.getItem("agf_vnum_"+op.id);
+    const vn = (stored !== null) ? parseInt(stored) : op.min;
+    return '<button class="device-btn" onclick="selDevice(\''+op.id+'\')">'+op.id
+         + '<br><span style="font-size:11px;font-weight:400;color:var(--text-muted)">Próxima venta #'+vn+'</span></button>';
+  }).join("");
 }
 function selDevice(d){
-  deviceId=d;
-  vNum=parseInt(localStorage.getItem("agf_vnum_"+d)||DEVICE_RANGES[d]);
+  const op = getOperador(d);
+  if(!op) return;
+  deviceId = d;
+  const stored = localStorage.getItem("agf_vnum_"+d);
+  vNum = (stored !== null) ? parseInt(stored) : op.min;
   sessionStorage.setItem("agf_auth","1");
   sessionStorage.setItem("agf_device",d);
   enterApp();
@@ -488,8 +476,9 @@ function selDevice(d){
 function enterApp(){
   document.getElementById("login-screen").style.display="none";
   document.getElementById("app-screen").style.display="block";
-  document.getElementById("vnlbl").textContent="Dispositivo "+deviceId+" · Venta #"+vNum;
-  document.getElementById("vnum-badge").textContent="Venta #"+vNum;
+  document.getElementById("op-name").textContent = deviceId;
+  document.getElementById("vnlbl").textContent = "Venta #"+vNum;
+  document.getElementById("vnum-badge").textContent = "Venta #"+vNum;
   agregarCaja();
   cargarTipoCambio();
 }
@@ -503,20 +492,31 @@ function resetContadores(){
     document.getElementById("admin-pwd").value="";
     return;
   }
-  if(!confirm("¿Resetear contadores?\nDispositivo A → Venta #1\nDispositivo B → Venta #1001"))return;
-  localStorage.setItem("agf_vnum_A",DEVICE_RANGES.A);
-  localStorage.setItem("agf_vnum_B",DEVICE_RANGES.B);
+  const resumen = OPERADORES.map(o => o.id+" → Venta #"+o.min).join("\n");
+  if(!confirm("¿Resetear contadores?\n"+resumen)) return;
+  OPERADORES.forEach(o => localStorage.setItem("agf_vnum_"+o.id, o.min));
   document.getElementById("admin-pwd").value="";
   document.getElementById("admin-err").textContent="";
   document.getElementById("admin-panel").className="admin-panel";
-  alert("Contadores reseteados:\nDispositivo A = 1\nDispositivo B = 1001");
+  renderOperadores();
+  alert("Contadores reseteados:\n"+resumen);
 }
 window.addEventListener("load",()=>{
   if(sessionStorage.getItem("agf_auth")==="1"){
-    deviceId=sessionStorage.getItem("agf_device")||"A";
-    vNum=parseInt(localStorage.getItem("agf_vnum_"+deviceId)||DEVICE_RANGES[deviceId]);
-    enterApp();
+    const saved = sessionStorage.getItem("agf_device");
+    const op = saved && getOperador(saved);
+    if(op){
+      deviceId = saved;
+      const stored = localStorage.getItem("agf_vnum_"+saved);
+      vNum = (stored !== null) ? parseInt(stored) : op.min;
+      enterApp();
+      return;
+    }
+    // sesión inválida (ej. Dispositivo A/B legado) → limpiar y pedir operador
+    sessionStorage.removeItem("agf_auth");
+    sessionStorage.removeItem("agf_device");
   }
+  renderOperadores();
 });
 
 // CONDICIÓN FISCAL
@@ -846,7 +846,7 @@ function prepararReciboDOM(p){
   // Filas de cajas con descuento por caja
   const filasCajas=p.cajas.map((l,i)=>{
     const tipo=l.tipo==="cerrada"?"Cerrada":"Combinada";
-    const tagBg=l.tipo==="cerrada"?"#EEF4F8":"#f0faf6";
+    const tagBg=l.tipo==="cerrada"?"#EEF4F8":"#F5F9FC";
     const precioOrigBase=l.tipo==="cerrada"?P_CERRADA:P_COMBINADA;
     const tachado=l.descCaja>0?`<span style="text-decoration:line-through;color:#ccc;font-size:9px;margin-right:3px">u$${precioOrigBase.toLocaleString("es-AR")}</span>`:"";
     const precioUSD=`${tachado}u$${l.precio.toLocaleString("es-AR")}`;
@@ -927,8 +927,8 @@ function prepararReciboDOM(p){
 
     <!-- BANDA -->
     <div style="background:#1B3A52;padding:7px 36px;display:flex;justify-content:space-between;position:relative;z-index:1">
-      <span style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:#9FD4C0">Comprobante de compra</span>
-      <span style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:#9FD4C0">Dermacells S.A.</span>
+      <span style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:#B8CAD9">Comprobante de compra</span>
+      <span style="font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:#B8CAD9">Dermacells S.A.</span>
     </div>
 
     <div style="padding:18px 36px 24px;position:relative;z-index:1">
@@ -1033,7 +1033,7 @@ function nuevaVenta(){
   vNum++;
   localStorage.setItem("agf_vnum_"+deviceId, vNum);
   cajas=[]; cajaId=0; condFiscal="";
-  document.getElementById("vnlbl").textContent="Dispositivo "+deviceId+" · Venta #"+vNum;
+  document.getElementById("vnlbl").textContent="Venta #"+vNum;
   document.getElementById("vnum-badge").textContent="Venta #"+vNum;
   ["nombre","apellido","cuit","mail","tel","localidad","razon-social","cuit-facturacion","vendedor-input"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   vendedor="";
