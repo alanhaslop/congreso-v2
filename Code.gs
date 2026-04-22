@@ -39,10 +39,6 @@ function doPost(e) {
       pdfBlob = savedFile.getBlob();
       pdfBlob.setName(nombre);
     } else {
-      // TODO: remover cuando el flujo cliente (pdfBase64 vía html2canvas+jsPDF) esté 100% validado.
-      // Este fallback usa Google Docs, que NO respeta Google Fonts, flexbox ni grid,
-      // así que el PDF resultante NO coincide con preview_recibo_v7.html. Se mantiene
-      // sólo como red de seguridad para payloads legacy/sync offline sin pdfBase64.
       var result = generarPdfRecibo(p);
       pdfBlob = result.blob;
       pdfUrl  = result.url;
