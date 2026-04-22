@@ -5,9 +5,10 @@
 const SPREADSHEET_ID = '1K2rELW54yEqQ8pKXHyPeyDqVLygeCQyQJMeH8w4n5m4';
 const ADMIN_EMAIL    = 'alan.haslop@dermacells.com.ar';
 const REPLY_TO       = 'alan.haslop@dermacells.com.ar';
-const SHEET_VENTAS   = 'Ventas';
-const SHEET_RESUMEN  = 'Resumen';
-const SHEET_STOCK    = 'Stock';
+const SHEET_VENTAS    = 'Ventas';
+const SHEET_RESUMEN   = 'Resumen';
+const SHEET_STOCK     = 'Stock';
+const SHEET_DASHBOARD = 'Dashboard';
 const PDF_FOLDER_ID  = '1qGxephO8pfFAz41B28f39BZM40YdM2GS';
 
 // Precios base (deben coincidir con index.html)
@@ -46,7 +47,8 @@ function doPost(e) {
 
     guardarVenta(p, pdfUrl);
     actualizarResumen(p);
-    obtenerOCrearHoja(SHEET_STOCK, crearHojaStock); // crea la hoja si no existe
+    obtenerOCrearHoja(SHEET_STOCK, crearHojaStock);         // crea la hoja si no existe
+    obtenerOCrearHoja(SHEET_DASHBOARD, crearHojaDashboard); // crea la hoja si no existe
 
     if (p.cliente && p.cliente.mail) enviarEmailCliente(p, pdfBlob);
     if (ADMIN_EMAIL)                 enviarEmailAdmin(p, pdfBlob);
@@ -87,7 +89,7 @@ function calcUnidades(p) {
 
 
 // ── GUARDAR VENTA EN HOJA ────────────────────────────────────────
-// Columnas: A–V datos venta | W PDF link | X–AA unidades por producto
+// Columnas: A–C datos venta | D Vendedor | E–W datos venta | X PDF link | Y–AB unidades por producto
 function guardarVenta(p, pdfUrl) {
   const sheet = obtenerOCrearHoja(SHEET_VENTAS, crearHeadersVentas);
   const c = p.cliente     || {};
@@ -105,42 +107,43 @@ function guardarVenta(p, pdfUrl) {
     new Date(),                                           // A  Timestamp
     p.ventaNum,                                           // B  Venta #
     p.dispositivo    || '',                               // C  Dispositivo
-    p.fecha          || '',                               // D  Fecha local
-    c.nombre         || '',                               // E  Nombre
-    c.apellido       || '',                               // F  Apellido
-    c.cuit           || '',                               // G  CUIT/CUIL
-    c.mail           || '',                               // H  Email
-    c.tel            || '',                               // I  Teléfono
-    c.localidad      || '',                               // J  Localidad
-    p.condFiscal     || '',                               // K  Cond. Fiscal
-    f.mismosContacto ? '' : (f.razonSocial     || ''),   // L  Razón Social
-    f.mismosContacto ? '' : (f.cuitFacturacion || ''),   // M  CUIT Fact.
-    p.metodoCobro    || '',                               // N  Método cobro
-    p.moneda         || 'USD',                            // O  Moneda
-    p.tipoCambio     || '',                               // P  Tipo cambio
-    (p.cajas || []).length,                               // Q  Cant. cajas
-    cajasDetalle,                                         // R  Detalle cajas
-    p.descuentoGlobal || 0,                               // S  Desc. global %
-    p.subtotalUSD    || p.totalUSD || 0,                  // T  Subtotal U$D
-    p.totalUSD       || 0,                                // U  Total U$D
-    p.totalARS       || '',                               // V  Total ARS
-    '',                                                   // W  Recibo PDF (fórmula abajo)
-    u.Dermal,                                             // X  Dermal (unidades)
-    u.Capillary,                                          // Y  Capillary (unidades)
-    u.Pink,                                               // Z  Pink (unidades)
-    u.Biomask                                             // AA Biomask (unidades)
+    p.vendedor       || '',                               // D  Vendedor
+    p.fecha          || '',                               // E  Fecha local
+    c.nombre         || '',                               // F  Nombre
+    c.apellido       || '',                               // G  Apellido
+    c.cuit           || '',                               // H  CUIT/CUIL
+    c.mail           || '',                               // I  Email
+    c.tel            || '',                               // J  Teléfono
+    c.localidad      || '',                               // K  Localidad
+    p.condFiscal     || '',                               // L  Cond. Fiscal
+    f.mismosContacto ? '' : (f.razonSocial     || ''),   // M  Razón Social
+    f.mismosContacto ? '' : (f.cuitFacturacion || ''),   // N  CUIT Fact.
+    p.metodoCobro    || '',                               // O  Método cobro
+    p.moneda         || 'USD',                            // P  Moneda
+    p.tipoCambio     || '',                               // Q  Tipo cambio
+    (p.cajas || []).length,                               // R  Cant. cajas
+    cajasDetalle,                                         // S  Detalle cajas
+    p.descuentoGlobal || 0,                               // T  Desc. global %
+    p.subtotalUSD    || p.totalUSD || 0,                  // U  Subtotal U$D
+    p.totalUSD       || 0,                                // V  Total U$D
+    p.totalARS       || '',                               // W  Total ARS
+    '',                                                   // X  Recibo PDF (fórmula abajo)
+    u.Dermal,                                             // Y  Dermal (unidades)
+    u.Capillary,                                          // Z  Capillary (unidades)
+    u.Pink,                                               // AA Pink (unidades)
+    u.Biomask                                             // AB Biomask (unidades)
   ]);
 
-  // Hipervínculo al PDF en columna W
+  // Hipervínculo al PDF en columna X (24)
   if (pdfUrl) {
     const lastRow = sheet.getLastRow();
-    sheet.getRange(lastRow, 23).setFormula('=HYPERLINK("' + pdfUrl + '","📄 Ver recibo")');
+    sheet.getRange(lastRow, 24).setFormula('=HYPERLINK("' + pdfUrl + '","📄 Ver recibo")');
   }
 }
 
 function crearHeadersVentas(sheet) {
   const headers = [
-    'Timestamp','Venta #','Dispositivo','Fecha local',
+    'Timestamp','Venta #','Dispositivo','Vendedor','Fecha local',
     'Nombre','Apellido','CUIT/CUIL','Email','Teléfono','Localidad',
     'Cond. Fiscal','Razón Social Fact.','CUIT Facturación',
     'Método cobro','Moneda','Tipo de cambio',
@@ -154,28 +157,34 @@ function crearHeadersVentas(sheet) {
   sheet.getRange(1, 1, 1, headers.length)
     .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
   sheet.setColumnWidth(1,  160);
-  sheet.setColumnWidth(4,  140);
-  sheet.setColumnWidth(18, 280);
-  sheet.setColumnWidths(5, 2, 110);
-  sheet.setColumnWidth(23, 100); // PDF
+  sheet.setColumnWidth(4,  120); // Vendedor
+  sheet.setColumnWidth(5,  140); // Fecha local
+  sheet.setColumnWidth(19, 280); // Detalle cajas
+  sheet.setColumnWidths(6, 2, 110); // Nombre, Apellido
+  sheet.setColumnWidth(24, 100); // PDF
   // Destacar columnas de stock en celeste
-  sheet.getRange(1, 24, 1, 4).setBackground('#1B3A52');
+  sheet.getRange(1, 25, 1, 4).setBackground('#1B3A52');
 }
 
 
-// ── HOJA DE RESUMEN (por día + método) ──────────────────────────
+// ── HOJA DE RESUMEN (por día + método + vendedor) ────────────────
 function actualizarResumen(p) {
   const sheet = obtenerOCrearHoja(SHEET_RESUMEN, crearHeadersResumen);
   const hoy   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
   const datos = sheet.getDataRange().getValues();
   const u     = calcUnidades(p);
 
-  const COL = { fecha:0, metodo:1, cajas:2, usd:3, ars:4, ventas:5,
-                dermal:6, capillary:7, pink:8, biomask:9 };
+  const COL = { fecha:0, metodo:1, vendedor:2, cajas:3, usd:4, ars:5, ventas:6,
+                dermal:7, capillary:8, pink:9, biomask:10 };
+  const NCOLS = 11;
+
+  const vendedorKey = (p.vendedor || '').toString().trim();
 
   let filaExistente = -1;
   for (let i = 1; i < datos.length; i++) {
-    if (datos[i][COL.fecha] === hoy && datos[i][COL.metodo] === p.metodoCobro) {
+    if (datos[i][COL.fecha]    === hoy
+     && datos[i][COL.metodo]   === p.metodoCobro
+     && datos[i][COL.vendedor] === vendedorKey) {
       filaExistente = i + 1;
       break;
     }
@@ -186,7 +195,7 @@ function actualizarResumen(p) {
   const totalARS  = p.totalARS  || 0;
 
   if (filaExistente > 0) {
-    const fila = sheet.getRange(filaExistente, 1, 1, 10).getValues()[0];
+    const fila = sheet.getRange(filaExistente, 1, 1, NCOLS).getValues()[0];
     sheet.getRange(filaExistente, COL.cajas    + 1).setValue(fila[COL.cajas]    + cantCajas);
     sheet.getRange(filaExistente, COL.usd      + 1).setValue(fila[COL.usd]      + totalUSD);
     sheet.getRange(filaExistente, COL.ars      + 1).setValue(fila[COL.ars]      + totalARS);
@@ -196,16 +205,16 @@ function actualizarResumen(p) {
     sheet.getRange(filaExistente, COL.pink     + 1).setValue(fila[COL.pink]     + u.Pink);
     sheet.getRange(filaExistente, COL.biomask  + 1).setValue(fila[COL.biomask]  + u.Biomask);
   } else {
-    sheet.appendRow([hoy, p.metodoCobro, cantCajas, totalUSD, totalARS, 1,
+    sheet.appendRow([hoy, p.metodoCobro, vendedorKey, cantCajas, totalUSD, totalARS, 1,
                      u.Dermal, u.Capillary, u.Pink, u.Biomask]);
   }
 }
 
 function crearHeadersResumen(sheet) {
-  sheet.appendRow(['Fecha','Método cobro','Cajas vendidas','Total U$D','Total ARS','# Ventas',
+  sheet.appendRow(['Fecha','Método cobro','Vendedor','Cajas vendidas','Total U$D','Total ARS','# Ventas',
                    'Dermal (u)','Capillary (u)','Pink (u)','Biomask (u)']);
   sheet.setFrozenRows(1);
-  sheet.getRange(1, 1, 1, 10)
+  sheet.getRange(1, 1, 1, 11)
     .setBackground('#1B3A52').setFontColor('#ffffff').setFontWeight('bold');
 }
 
@@ -214,7 +223,7 @@ function crearHeadersResumen(sheet) {
 function crearHojaStock(sheet) {
   const PRODS = ['Dermal', 'Capillary', 'Pink', 'Biomask'];
   // Columnas en hoja Ventas para cada producto
-  const COL_VENTAS = { Dermal: 'X', Capillary: 'Y', Pink: 'Z', Biomask: 'AA' };
+  const COL_VENTAS = { Dermal: 'Y', Capillary: 'Z', Pink: 'AA', Biomask: 'AB' };
 
   // ── Título ──
   sheet.getRange('A1').setValue('CONTROL DE STOCK — BAAS 2026');
@@ -271,14 +280,14 @@ function crearHojaStock(sheet) {
     .setBackground('#1D9E75').setFontColor('#ffffff').setFontWeight('bold');
 
   // QUERY sobre hoja Resumen (ya tiene datos agregados por día, mucho más simple)
-  // Resumen: A=Fecha, B=Método, C=Cajas, D=U$D, E=ARS, F=#Ventas, G=Dermal, H=Capillary, I=Pink, J=Biomask
+  // Resumen: A=Fecha, B=Método, C=Vendedor, D=Cajas, E=U$D, F=ARS, G=#Ventas, H=Dermal, I=Capillary, J=Pink, K=Biomask
   sheet.getRange('A11').setFormula(
-    '=IFERROR(QUERY(Resumen!A2:J,'
-    + '"SELECT A, SUM(G), SUM(H), SUM(I), SUM(J), SUM(C), SUM(D), SUM(E), SUM(F) '
+    '=IFERROR(QUERY(Resumen!A2:K,'
+    + '"SELECT A, SUM(H), SUM(I), SUM(J), SUM(K), SUM(D), SUM(E), SUM(F), SUM(G) '
     + 'WHERE A IS NOT NULL '
     + 'GROUP BY A '
     + 'ORDER BY A DESC '
-    + 'LABEL A \'\', SUM(G) \'\', SUM(H) \'\', SUM(I) \'\', SUM(J) \'\', SUM(C) \'\', SUM(D) \'\', SUM(E) \'\', SUM(F) \'\'"'
+    + 'LABEL A \'\', SUM(H) \'\', SUM(I) \'\', SUM(J) \'\', SUM(K) \'\', SUM(D) \'\', SUM(E) \'\', SUM(F) \'\', SUM(G) \'\'"'
     + ',0),"Sin ventas aún")'
   );
 
@@ -291,6 +300,98 @@ function crearHojaStock(sheet) {
   sheet.setColumnWidth(6, 130);
   sheet.setFrozenRows(0);
 }
+
+
+// ── HOJA DE DASHBOARD (ranking de vendedores por día + total) ────
+// Lógica dinámica: detecta automáticamente los 3 días más recientes con ventas
+// (cualquier fila de Ventas que tenga vendedor cargado).
+//
+// Referencias a hoja Ventas: A=Timestamp(Date), B=Venta #, D=Vendedor,
+// R=Cant.cajas, V=Total U$D, W=Total ARS
+function crearHojaDashboard(sheet) {
+  // ── Título principal ──
+  sheet.getRange('A1').setValue('RANKING DE VENDEDORES');
+  sheet.getRange('A1:E1').merge()
+    .setBackground('#1B3A52').setFontColor('#ffffff')
+    .setFontSize(13).setFontWeight('bold').setHorizontalAlignment('center');
+
+  // ── Panel "Días detectados" (columnas G-H, a modo de referencia) ──
+  // Fórmula para la k-ésima fecha más reciente entre ventas con vendedor.
+  // FILTER devuelve los timestamps de Ventas!A donde Ventas!D no está vacía;
+  // INT los convierte a fecha pura; UNIQUE elimina duplicados; LARGE toma el k-ésimo.
+  function fechaRecienteK(k) {
+    return '=IFERROR(LARGE(UNIQUE(INT(FILTER(Ventas!A2:A, Ventas!D2:D<>""))), ' + k + '), "")';
+  }
+
+  sheet.getRange('G1').setValue('DÍAS DETECTADOS (AUTO)')
+    .setFontWeight('bold').setFontSize(10).setFontColor('#1B3A52');
+  sheet.getRange('G1:H1').merge().setBackground('#E1F5EE');
+  sheet.getRange('G2').setValue('1º (+ reciente):');
+  sheet.getRange('G3').setValue('2º:');
+  sheet.getRange('G4').setValue('3º:');
+  sheet.getRange('H2').setFormula(fechaRecienteK(1));
+  sheet.getRange('H3').setFormula(fechaRecienteK(2));
+  sheet.getRange('H4').setFormula(fechaRecienteK(3));
+  sheet.getRange('H2:H4').setNumberFormat('dd/mm/yyyy');
+  sheet.getRange('G2:G4').setFontColor('#666').setFontSize(10);
+
+  // ── Fórmulas de ranking ──
+  // Título dinámico: "Ranking del dd/mm/yyyy" o "(día sin ventas aún)"
+  function tituloDia(cellFecha) {
+    return '=IF(' + cellFecha + '="","(día sin ventas aún)","Ranking del "&TEXT(' + cellFecha + ',"dd/mm/yyyy"))';
+  }
+
+  // QUERY dinámica por día: filtra ventas cuyo timestamp cae en el día indicado por la celda
+  function formulaRankingDia(cellFecha) {
+    return '=IF(' + cellFecha + '="","Sin ventas aún",IFERROR(QUERY(Ventas!A:W,'
+      + '"SELECT D, COUNT(B), SUM(V), SUM(W), SUM(R) '
+      + 'WHERE A >= date \'"&TEXT(' + cellFecha + ',"yyyy-mm-dd")&"\' '
+      + 'AND A < date \'"&TEXT(' + cellFecha + '+1,"yyyy-mm-dd")&"\' '
+      + 'AND D IS NOT NULL AND D <> \'\' '
+      + 'GROUP BY D ORDER BY COUNT(B) DESC '
+      + 'LABEL D \'Vendedor\', COUNT(B) \'# Ventas\', SUM(V) \'Total U$D\', SUM(W) \'Total ARS\', SUM(R) \'Cajas\'"'
+      + ',1),"Sin ventas aún"))';
+  }
+
+  // QUERY para el total histórico (sin filtro de fecha)
+  const formulaRankingTotal =
+    '=IFERROR(QUERY(Ventas!A:W,'
+    + '"SELECT D, COUNT(B), SUM(V), SUM(W), SUM(R) '
+    + 'WHERE D IS NOT NULL AND D <> \'\' '
+    + 'GROUP BY D ORDER BY COUNT(B) DESC '
+    + 'LABEL D \'Vendedor\', COUNT(B) \'# Ventas\', SUM(V) \'Total U$D\', SUM(W) \'Total ARS\', SUM(R) \'Cajas\'"'
+    + ',1),"Sin ventas aún")';
+
+  // ── Render de las 3 tablas por día ──
+  const CELDAS_FECHA = ['H2', 'H3', 'H4'];
+  let row = 3;
+  CELDAS_FECHA.forEach(function(cell) {
+    sheet.getRange(row, 1).setFormula(tituloDia(cell))
+      .setFontWeight('bold').setFontSize(11).setFontColor('#1B3A52');
+    sheet.getRange(row, 1, 1, 5).setBackground('#E1F5EE');
+    row++;
+    sheet.getRange(row, 1).setFormula(formulaRankingDia(cell));
+    row += 16; // espacio reservado para la tabla + separación
+  });
+
+  // ── Tabla total ──
+  sheet.getRange(row, 1).setValue('RANKING TOTAL (TODAS LAS VENTAS)')
+    .setFontWeight('bold').setFontSize(11).setFontColor('#ffffff');
+  sheet.getRange(row, 1, 1, 5).setBackground('#1D9E75');
+  row++;
+  sheet.getRange(row, 1).setFormula(formulaRankingTotal);
+
+  // ── Anchos de columna ──
+  sheet.setColumnWidth(1, 160); // Vendedor
+  sheet.setColumnWidth(2, 100); // # Ventas
+  sheet.setColumnWidth(3, 120); // Total U$D
+  sheet.setColumnWidth(4, 130); // Total ARS
+  sheet.setColumnWidth(5, 100); // Cajas
+  sheet.setColumnWidth(7, 140); // label "días detectados"
+  sheet.setColumnWidth(8, 110); // fechas
+  sheet.setFrozenRows(1);
+}
+
 
 
 // ── PDF RECIBO ───────────────────────────────────────────────────

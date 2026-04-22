@@ -168,6 +168,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
 .admin-panel input:focus{border-color:var(--green)}
 .btn-reset{width:100%;padding:10px;background:#c0392b;color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer}
 .btn-reset:hover{background:#a93226}
+/* COMBOBOX VENDEDOR */
+.combo{position:relative}
+.combo-input{width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 34px 9px 12px;font-size:15px;color:var(--text);outline:none;background:#fafaf9}
+.combo-input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,.1);background:#fff}
+.combo-caret{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted);font-size:11px}
+.combo-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 6px 18px rgba(0,0,0,.08);max-height:260px;overflow-y:auto;z-index:10;display:none}
+.combo-list.show{display:block}
+.combo-opt{padding:9px 12px;font-size:14px;cursor:pointer;color:var(--text)}
+.combo-opt:hover,.combo-opt.active{background:var(--green-light);color:var(--green-dark)}
+.combo-empty{padding:9px 12px;font-size:13px;color:var(--text-hint);font-style:italic}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -218,6 +228,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;ba
     <div id="conn-badge" class="online">
       <span class="cbdot online"></span>
       <span id="conn-text">En línea</span>
+    </div>
+  </div>
+
+  <!-- 0. VENDEDOR -->
+  <div class="card">
+    <div class="card-title">Vendedor</div>
+    <div class="field">
+      <label for="vendedor-input">Seleccioná o escribí el nombre</label>
+      <div class="combo" id="vendedor-combo">
+        <input type="text" id="vendedor-input" class="combo-input" autocomplete="off" placeholder="Empezá a escribir..." oninput="comboOnInput()" onfocus="comboOpen()" onkeydown="comboOnKey(event)">
+        <span class="combo-caret">▼</span>
+        <div class="combo-list" id="vendedor-list"></div>
+      </div>
     </div>
   </div>
 
@@ -341,6 +364,71 @@ const DEVICE_RANGES = {A:1, B:1001};
 let deviceId = "";
 let vNum = 1;
 let cajas = [], metodo = "", moneda = "ARS", condFiscal = "";
+
+// VENDEDOR — combobox custom (editable + filtrado)
+const VENDEDORES = ["Alan","Alejandra","Andrés","Ariana","Calcopietro","Cecilia","Delfina","Eduardo","Federico","Gabriel","Héctor","Julio","Paola"];
+let vendedor = "";
+let comboIdx = -1;
+function comboNormalize(s){ return (s||"").toString().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim(); }
+function comboRender(filter){
+  const list = document.getElementById("vendedor-list");
+  const q = comboNormalize(filter);
+  const opts = VENDEDORES.filter(v => !q || comboNormalize(v).includes(q));
+  if (opts.length === 0){
+    list.innerHTML = '<div class="combo-empty">Sin coincidencias — se guardará lo que escribas</div>';
+  } else {
+    list.innerHTML = opts.map((v,i) => '<div class="combo-opt'+(i===comboIdx?" active":"")+'" data-val="'+v+'" onmousedown="comboPick(\''+v.replace(/'/g,"\\'")+'\')">'+v+'</div>').join("");
+  }
+}
+function comboOpen(){
+  comboIdx = -1;
+  comboRender(document.getElementById("vendedor-input").value);
+  document.getElementById("vendedor-list").classList.add("show");
+}
+function comboClose(){
+  document.getElementById("vendedor-list").classList.remove("show");
+  comboIdx = -1;
+}
+function comboOnInput(){
+  const v = document.getElementById("vendedor-input").value;
+  vendedor = v.trim();
+  comboIdx = -1;
+  comboRender(v);
+  document.getElementById("vendedor-list").classList.add("show");
+}
+function comboPick(val){
+  document.getElementById("vendedor-input").value = val;
+  vendedor = val;
+  comboClose();
+}
+function comboOnKey(e){
+  const list = document.getElementById("vendedor-list");
+  const visible = list.classList.contains("show");
+  const opts = Array.from(list.querySelectorAll(".combo-opt"));
+  if (e.key === "ArrowDown"){
+    if (!visible) comboOpen();
+    comboIdx = Math.min(comboIdx + 1, opts.length - 1);
+    comboRender(document.getElementById("vendedor-input").value);
+    e.preventDefault();
+  } else if (e.key === "ArrowUp"){
+    comboIdx = Math.max(comboIdx - 1, 0);
+    comboRender(document.getElementById("vendedor-input").value);
+    e.preventDefault();
+  } else if (e.key === "Enter"){
+    if (visible && comboIdx >= 0 && opts[comboIdx]){
+      comboPick(opts[comboIdx].getAttribute("data-val"));
+      e.preventDefault();
+    } else {
+      comboClose();
+    }
+  } else if (e.key === "Escape"){
+    comboClose();
+  }
+}
+document.addEventListener("click", function(e){
+  const combo = document.getElementById("vendedor-combo");
+  if (combo && !combo.contains(e.target)) comboClose();
+});
 
 // LOGIN
 async function cargarTipoCambio(){
@@ -587,11 +675,13 @@ function buildPayload(){
     return{caja:i+1,tipo:caja.tipo,detalle:caja.tipo==="cerrada"?caja.producto:caja.slots.join(", "),descCaja:caja.descPct,precio:precioFinal};
   });
   const totalARS=moneda==="ARS"?Math.round(totalUSD*tc):null;
-  return{ventaNum:vNum,fecha:new Date().toLocaleString("es-AR"),cliente:c,facturacion,condFiscal,cajas:lineas,totalUSD,totalARS,moneda,tipoCambio:moneda==="ARS"?tc:null,metodoCobro:metodo,descuentoGlobal:descGlobal};
+  return{ventaNum:vNum,fecha:new Date().toLocaleString("es-AR"),vendedor,cliente:c,facturacion,condFiscal,cajas:lineas,totalUSD,totalARS,moneda,tipoCambio:moneda==="ARS"?tc:null,metodoCobro:metodo,descuentoGlobal:descGlobal};
 }
 
 // CONFIRMAR — offline-first: siempre guarda en IndexedDB primero, luego sincroniza en background
 async function confirmar(){
+  vendedor=(document.getElementById("vendedor-input").value||"").trim();
+  if(!vendedor){alert("Seleccioná o escribí el vendedor.");document.getElementById("vendedor-input").focus();return;}
   const c=getCliente();
   if(!c.nombre||!c.apellido||!c.cuit){alert("Completá nombre, apellido y CUIT.");return;}
   if(cajas.length===0){alert("Agregá al menos una caja.");return;}
@@ -842,7 +932,8 @@ function nuevaVenta(){
   cajas=[]; cajaId=0; condFiscal="";
   document.getElementById("vnlbl").textContent="Dispositivo "+deviceId+" · Venta #"+vNum;
   document.getElementById("vnum-badge").textContent="Venta #"+vNum;
-  ["nombre","apellido","cuit","mail","tel","localidad","razon-social","cuit-facturacion"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  ["nombre","apellido","cuit","mail","tel","localidad","razon-social","cuit-facturacion","vendedor-input"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  vendedor="";
   document.getElementById("desc-global").value="0";
   document.getElementById("mismos-datos").checked=true;
   document.getElementById("datos-facturacion-extra").style.display="none";
